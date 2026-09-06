@@ -27,33 +27,24 @@
  * https://public.api.connect.skoda-auto.cz/docs/swagger-ui/index.html#/
  */
 
-class mySkoda 
+class skodaApi 
 {
     private const string API_HOST = 'https://public.api.connect.skoda-auto.cz/api/v1';
     private const string APP_ID = 'com.github.com.mem76.skodaLnxCmd';
     private static ?string $vin = null;
     private static ?string $key = null;
     private static ?string $pin = null;
+    private static ?string $cacheDir = null;
     private static int $heatTemp = 20;
     private static array $_CACHE = array();
     private static ?string $errorMsg = null;
     private static array $errorLog = array();
 
-    public static function printJsonStatus(): void
-    {
-        $a = array();
-        $a['charge_done'] = self::getChargeDone();
-        $a['charge_power'] = self::getChargingPower();
-        $a['charge_rate'] = self::getChargeRate();
-        $a['locked'] = self::getLockedStatus();
-        $a['odometer'] = self::getOdo();
-        $a['parking_location'] = self::getParkingLocation();
-        $a['range'] = self::getRange();
-        $a['soc'] = self::getSoc();
-        echo json_encode($a, JSON_UNESCAPED_UNICODE, JSON_PRETTY_PRINT);
-    }
-
-    private static function getChargeDone(): ?string
+    /**
+     * Get estimated charge compete.
+     * @return string|null Date/time in ISO format.
+     */
+    public static function getChargeDone(): ?string
     {
         if (!self::isCharging()) {
             return null;
@@ -71,7 +62,7 @@ class mySkoda
      * @param bool $minutes Return number of minuts as int if true, else retun text.
      * @return string|int|null
      */
-    private static function getChargeDoneIn(bool $minutes=false): null|string|int
+    protected static function getChargeDoneIn(bool $minutes=false): null|string|int
     {
         // "remainingTimeToFullyChargedInMinutes" is a bad metric, the car set the value, and the API send this value
         // minutes, sometime more than an hour after it is fetched. This results in a bad experience do to bad numbers.
@@ -105,7 +96,7 @@ class mySkoda
         return "$d days and $h hours";
     }
 
-    private static function getAcStatusValue():?string
+    public static function getAcStatusValue():?string
     {
         $status = self::getStatus();
         if (empty($status['vehicle']['airConditioning']['state'])) {
@@ -130,7 +121,18 @@ class mySkoda
         self::$errorMsg = $msg;
         self::$errorLog[] = $msg;
     }
-    private static function getAcStatus():?bool
+
+    /**
+     * Some functions need a security pin.
+     * @param int|string $pin
+     * @return void
+     */
+    public static function setSecurityPin(int|string $pin):void
+    {
+        self::$pin = $pin;
+    }
+    
+    public static function getAcStatus():?bool
     {
         $state = self::getAcStatusValue();
         if ($state == 'OFF') {
@@ -144,7 +146,7 @@ class mySkoda
         }
         return null;
     }
-    private static function getAcTargetTemp() :?int {
+    protected static function getAcTargetTemp() :?int {
         $status = self::getStatus();
         if(empty($status['vehicle']['airConditioning']['targetTemperature']['value'])) {
            return null; 
@@ -155,7 +157,7 @@ class mySkoda
         return null;
     }
 
-    private static function getChargingState(): ?string
+    protected static function getChargingState(): ?string
     {
         $status = self::getStatus();
         if (empty($status['vehicle']['charging']['status']['state'])) {
@@ -164,7 +166,7 @@ class mySkoda
         return $status['vehicle']['charging']['status']['state'];
     }
 
-    private static function isCharging(): ?bool
+    public static function isCharging(): ?bool
     {
         $status = self::getStatus();
         $charge = $status['vehicle']['charging']['status']['state'];
@@ -226,6 +228,8 @@ class mySkoda
     }
 
     /**
+     * Disk cache TTL
+     * 
      * This function keeps status cache just shy of 5 min, but:
      * * increase cache time if the API has been heavily used.
      * * reduce cache time if rate-limit period is soon over
@@ -391,7 +395,7 @@ class mySkoda
     }
 
     /**
-     * Extract data from HTTP header.
+     * Extract data from HTTP header, stored in self::$_CACHE['rate_limit'].
      * @param string $header
      * @return void
      */
@@ -440,10 +444,10 @@ class mySkoda
                 return true;
             }
         }
-        self::$errorMsg = 'You vehicle does not support this function.';
+        self::setErrorMsg('Method not supported by vehicle: ' . $method);
         return false;
     }
-    protected static function vehicleSupportChargeModes(string $mode = ''): ?bool
+    public static function vehicleSupportChargeModes(string $mode = ''): ?bool
     {
         if ($mode == '') {
             return null;
@@ -457,7 +461,7 @@ class mySkoda
         if (in_array($mode, $modes)) {
             return true;
         }
-        self::$errorMsg = 'You vehicle does not support this charging mode.';
+        self::setErrorMsg('Vehicle does not support this charging mode.');
         return false;
     }
 
@@ -475,7 +479,10 @@ class mySkoda
         return $return;
     }
 
-    private static function getChargingPower(): ?float
+    /**
+     * @return float|null charging power in kW
+     */
+    public static function getChargingPower(): ?float
     {
         if (!self::isCharging()) {
             return null;
@@ -488,7 +495,10 @@ class mySkoda
         return null;
     }
 
-    private static function getChargeRate(): ?int
+    /**
+     * @return int|null charge rate in km/h
+     */
+    public static function getChargeRate(): ?int
     {
         if (!self::isCharging()) {
             return null;
@@ -501,7 +511,7 @@ class mySkoda
         return null;
     }
 
-    private static function getLockedStatus(): ?string
+    public static function getLockedStatus(): ?string
     {
         $status = self::getStatus();
         if (empty($status['vehicle']['status']['overall']['doorsLocked'])) {
@@ -510,7 +520,7 @@ class mySkoda
         return $status['vehicle']['status']['overall']['doorsLocked'];
     }
 
-    private static function getOdo(): ?int
+    public static function getOdo(): ?int
     {
         $status = self::getStatus();
         if (@is_numeric(($status['vehicle']['odometer']['mileageInKm']))) {
@@ -519,7 +529,7 @@ class mySkoda
         return null;
     }
 
-    private static function getParkingLocation(): ?string
+    public static function getParkingLocation(): ?string
     {
         $status = self::getStatus();
         if(empty($status['vehicle']['parkingPosition'])) {
@@ -536,7 +546,7 @@ class mySkoda
      * Remaining range in km
      * @return int|null
      */
-    private static function getRange(): ?int
+    public static function getRange(): ?int
     {
         $status = self::getStatus();
         if (@is_numeric(($status['vehicle']['charging']['status']['battery']['remainingCruisingRangeInMeters']))) {
@@ -545,7 +555,7 @@ class mySkoda
         return null;
     }
 
-    private static function getSoc(): ?int
+    public static function getSoc(): ?int
     {
         $status = self::getStatus();
         if (@is_numeric(($status['vehicle']['charging']['status']['battery']['stateOfChargeInPercent']))) {
@@ -553,82 +563,22 @@ class mySkoda
         }
         return null;
     }
-    
+
+    /**
+     * Purge disk cache.
+     * Purging disk cache after changes (like turning on AC) can improve user experience
+     * 
+     * @param bool $force Purge cache regardless of API throtling status.
+     * @return void
+     */
     private static function purgeCache(bool $force = false): void
     {
         $fileName = self::getCacheFileName('status');
         if (file_exists($fileName)) @unlink($fileName);
     }
 
-    public static function printStatus()
-    {
-        //self::init();
 
-        $width = 70;
-        $plateNumber = self::getPlateNumber();
-        $top = mb_str_pad("[" , ($width - strlen($plateNumber)) / 2, "#", STR_PAD_LEFT);
-        echo mb_str_pad($top . $plateNumber . ']', $width, "#");
-        echo PHP_EOL;
-        $print=array();
-        $print[0][0] = mb_str_pad("ODO:", 8) . self::getOdo() . ' km';
-        $print[1][0] = mb_str_pad("SOC:", 8) . self::getSoc() . '%';
-        $print[2][0] = mb_str_pad("Range: ", 8) . self::getRange() . ' km';
-        $print[3][0] = mb_str_pad("Locked: ", 8) . self::getLockedStatus();
-
-        if (self::isCharging()) {
-            $print[0][1] = "Is charging";
-            $print[1][1] = mb_str_pad("Charging power:", 16) . self::getChargingPower() . ' kW';
-            $print[2][1] = mb_str_pad("Sharing rate:", 16) . self::getChargeRate() . ' km/h';
-            if (self::getChargingState()=='CONSERVING') {
-                $print[3][1] = "Done charging";
-            } else {
-                //$print[3][1] = "Done at: " . self::getChargeDone();
-                $print[3][1] = "Done in: " . self::getChargeDoneIn();
-            }
-        } else {
-            $print[0][1] = "Not charging";
-            if (self::getChargingState()=='READY_FOR_CHARGING') {
-                $print[1][1] = "Connected, not charging";
-            } else {
-                $print[1][1] = "";
-            }
-            $print[2][1] = "";
-            $print[3][1] = "";
-        }
-        $col0 = 23;
-        $col1 = $width - $col0;
-        foreach ($print as $row) {
-            echo mb_str_pad('# ' . $row[0], $col0 - 1);
-            echo mb_str_pad('# ' . $row[1], $col1 - 1);
-            echo " #";
-            echo PHP_EOL;
-        }
-        echo mb_str_pad('#', $width, '#') . PHP_EOL;
-        if (self::getParkingLocation()) {
-            $str = "# Parked: " . self::getParkingLocation();
-            echo mb_str_pad($str, $width - 1) . '#' . PHP_EOL;
-        }
-        if (self::getAcStatus()) {
-            $str = "# AC: On, target: " . self::getAcTargetTemp() . '°C';
-            $str .= ' (' . self::getAcStatusValue() . ')';
-            echo mb_str_pad($str, $width-1) . '#'. PHP_EOL;
-        }
-        if (self::getParkingLocation() || self::getAcStatus()){
-            echo mb_str_pad('#', $width, '#') . PHP_EOL;
-        }
-
-        $rateArray = self::getRateLimitStatus();
-        $rate = 'Rate limit: '
-                . $rateArray['ratelimit-remaining'] . '/' . $rateArray['ratelimit-limit']
-                . ' (' . floor(
-                        ($rateArray['ratelimit-reset'] - (time() - $rateArray['timestamp']))
-                        / 60) . ' minutes left)';
-        echo mb_str_pad('# ' . $rate, $width - 1) . '#' . PHP_EOL;
-        echo mb_str_pad('# ' . "Key expires: " . $rateArray['x-api-key-expires-at'], $width - 1) . '#' . PHP_EOL;
-        echo mb_str_pad('#', $width, '#') . PHP_EOL;
-    }
-
-    private static function getPlateNumber(): ?string
+    protected static function getPlateNumber(): ?string
     {
         $status = self::getStatus();
         return $status['vehicle']['licensePlate'] ?? null;
@@ -748,41 +698,6 @@ class mySkoda
         return false;
     }
 
-    public static function help(): void
-    {
-        echo "HELP " . PHP_EOL . PHP_EOL;
-        echo "Options:" . PHP_EOL;
-        echo "skoda.status AC:      Turn on AC (heat/cool)." . PHP_EOL;
-        echo "skoda.status heat:    Turn on heat (Webasto?)." . PHP_EOL;
-        echo "skoda.status reset:   Reset AC and heat" . PHP_EOL;
-        echo "skoda.status status:  Display status." . PHP_EOL;
-        echo "skoda.status support: What do you car support." . PHP_EOL;
-        echo PHP_EOL . PHP_EOL;
-        echo "Config:"
-                . "The script needs the VIN and API key. The pin will be requested if not found." . PHP_EOL
-                . "Set the following as env vars or in the configure file:" . PHP_EOL
-                . "You can get the VIN and API key from the mySkoda app." . PHP_EOL
-                . "# Filename: " . self::getConfigFileName() . PHP_EOL;
-        echo "SKODA_VIN='TMBJB9NY5RF999999'" . PHP_EOL;
-        echo "SKODA_KEY='msk_lkjadsfpoiaupojljm'" . PHP_EOL;
-        echo "SKODA_PIN='1234'" . PHP_EOL;
-        echo PHP_EOL . PHP_EOL;
-        echo "# Note: This program have no affiliations with Škoda, it is published 'as is'. The script is" . PHP_EOL;
-        echo "# primary made for the author to start the AC (cooling and heating) from Linux command line." . PHP_EOL;
-        echo "# The application is tested against a 2025/11 Škoda Elroq." . PHP_EOL;
-        echo PHP_EOL . PHP_EOL;
-        echo "©2026 MEM76: https://github.com/mem76/skodaLnxCmd" . PHP_EOL;
-        exit();
-    }
-
-    public static function requestSecurityPin(): void
-    {
-        if (self::$pin) {
-            return;
-        }
-        echo "Enter security PIN: ";
-        self::$pin = trim(fgets(STDIN));
-    }
 
     public static function isPinSet(): bool
     {
@@ -907,12 +822,130 @@ class mySkoda
         return null;
 
     }
+}
+
+class skodaLnxCmd extends skodaApi {
+    public static function help(): void
+    {
+        echo "HELP " . PHP_EOL . PHP_EOL;
+        echo "Options:" . PHP_EOL;
+        echo "skoda.status AC:      Turn on AC (heat/cool)." . PHP_EOL;
+        echo "skoda.status heat:    Turn on heat (Webasto?)." . PHP_EOL;
+        echo "skoda.status reset:   Reset AC and heat" . PHP_EOL;
+        echo "skoda.status status:  Display status." . PHP_EOL;
+        echo "skoda.status support: What do you car support." . PHP_EOL;
+        echo PHP_EOL . PHP_EOL;
+        echo "Config:"
+                . "The script needs the VIN and API key. The pin will be requested if not found." . PHP_EOL
+                . "Set the following as env vars or in the configure file:" . PHP_EOL
+                . "You can get the VIN and API key from the mySkoda app." . PHP_EOL
+                . "# Filename: " . self::getConfigFileName() . PHP_EOL;
+        echo "SKODA_VIN='TMBJB9NY5RF999999'" . PHP_EOL;
+        echo "SKODA_KEY='msk_lkjadsfpoiaupojljm'" . PHP_EOL;
+        echo "SKODA_PIN='1234'" . PHP_EOL;
+        echo PHP_EOL . PHP_EOL;
+        echo "# Note: This program have no affiliations with Škoda, it is published 'as is'. The script is" . PHP_EOL;
+        echo "# primary made for the author to start the AC (cooling and heating) from Linux command line." . PHP_EOL;
+        echo "# The application is tested against a 2025/11 Škoda Elroq." . PHP_EOL;
+        echo PHP_EOL . PHP_EOL;
+        echo "©2026 MEM76: https://github.com/mem76/skodaLnxCmd" . PHP_EOL;
+        exit();
+    }
+    public static function printJsonStatus(): void
+    {
+        $a = array();
+        $a['charge_done'] = self::getChargeDone();
+        $a['charge_power'] = self::getChargingPower();
+        $a['charge_rate'] = self::getChargeRate();
+        $a['locked'] = self::getLockedStatus();
+        $a['odometer'] = self::getOdo();
+        $a['parking_location'] = self::getParkingLocation();
+        $a['range'] = self::getRange();
+        $a['soc'] = self::getSoc();
+        echo json_encode($a, JSON_UNESCAPED_UNICODE, JSON_PRETTY_PRINT);
+    }
+    public static function printStatus(): void
+    {
+        $width = 70;
+        $plateNumber = self::getPlateNumber();
+        $top = mb_str_pad("[" , ($width - strlen($plateNumber)) / 2, "#", STR_PAD_LEFT);
+        echo mb_str_pad($top . $plateNumber . ']', $width, "#");
+        echo PHP_EOL;
+        $print=array();
+        $print[0][0] = mb_str_pad("ODO:", 8) . self::getOdo() . ' km';
+        $print[1][0] = mb_str_pad("SOC:", 8) . self::getSoc() . '%';
+        $print[2][0] = mb_str_pad("Range: ", 8) . self::getRange() . ' km';
+        $print[3][0] = mb_str_pad("Locked: ", 8) . self::getLockedStatus();
+
+        if (self::isCharging()) {
+            $print[0][1] = "Is charging";
+            $print[1][1] = mb_str_pad("Charging power:", 16) . self::getChargingPower() . ' kW';
+            $print[2][1] = mb_str_pad("Sharing rate:", 16) . self::getChargeRate() . ' km/h';
+            if (self::getChargingState()=='CONSERVING') {
+                $print[3][1] = "Done charging";
+            } else {
+                //$print[3][1] = "Done at: " . self::getChargeDone();
+                $print[3][1] = "Done in: " . self::getChargeDoneIn();
+            }
+        } else {
+            $print[0][1] = "Not charging";
+            if (self::getChargingState()=='READY_FOR_CHARGING') {
+                $print[1][1] = "Connected, not charging";
+            } else {
+                $print[1][1] = "";
+            }
+            $print[2][1] = "";
+            $print[3][1] = "";
+        }
+        $col0 = 23;
+        $col1 = $width - $col0;
+        foreach ($print as $row) {
+            echo mb_str_pad('# ' . $row[0], $col0 - 1);
+            echo mb_str_pad('# ' . $row[1], $col1 - 1);
+            echo " #";
+            echo PHP_EOL;
+        }
+        echo mb_str_pad('#', $width, '#') . PHP_EOL;
+        if (self::getParkingLocation()) {
+            $str = "# Parked: " . self::getParkingLocation();
+            echo mb_str_pad($str, $width - 1) . '#' . PHP_EOL;
+        }
+        if (self::getAcStatus()) {
+            $str = "# AC: On, target: " . self::getAcTargetTemp() . '°C';
+            $str .= ' (' . self::getAcStatusValue() . ')';
+            echo mb_str_pad($str, $width-1) . '#'. PHP_EOL;
+        }
+        if (self::getParkingLocation() || self::getAcStatus()){
+            echo mb_str_pad('#', $width, '#') . PHP_EOL;
+        }
+
+        $rateArray = self::getRateLimitStatus();
+        $rate = 'Rate limit: '
+                . $rateArray['ratelimit-remaining'] . '/' . $rateArray['ratelimit-limit']
+                . ' (' . floor(
+                        ($rateArray['ratelimit-reset'] - (time() - $rateArray['timestamp']))
+                        / 60) . ' minutes left)';
+        echo mb_str_pad('# ' . $rate, $width - 1) . '#' . PHP_EOL;
+        echo mb_str_pad('# ' . "Key expires: " . $rateArray['x-api-key-expires-at'], $width - 1) . '#' . PHP_EOL;
+        echo mb_str_pad('#', $width, '#') . PHP_EOL;
+    }
     public static function reset():void
     {
         self::stopActiveVentilation();
         self::stopAirConditioning();
         self::stopAuxiliaryHeating();
     }
+    
+    public static function requestSecurityPin(): void
+    {
+        if (self::isPinSet()){
+            return;
+        }
+        echo "Enter security PIN: ";
+        $pin = trim(fgets(STDIN));
+        self::setSecurityPin($pin);
+    }
+
 }
 
 
@@ -937,14 +970,14 @@ if ($argc < 2) {
 $action = strtolower($argv[1]);
 // Help
 if ($action == 'help') {
-    mySkoda::help();
+    skodaLnxCmd::help();
 }
 
 // Request PIN for all actions except status
 if (!preg_match('/^(status|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
-    mySkoda::requestSecurityPin();
+    skodaLnxCmd::requestSecurityPin();
     // Exit if PIN is empty
-    if (mySkoda::isPinSet()) {
+    if (skodaLnxCmd::isPinSet()) {
         echo "Security PIN is required.\n";
         exit(1);
     }
@@ -952,11 +985,11 @@ if (!preg_match('/^(status|json|support|ac(|-off)|charge(|-on|-off))$/', $action
 
 switch ($action) {
     case 'ac':
-        if (mySkoda::startAirConditioning()) {
+        if (skodaLnxCmd::startAirConditioning()) {
             echo "Air conditioning has been started.\n";
         } else {
             echo "An error occurred" . PHP_EOL;
-            echo mySkoda::getErrorMsg() . PHP_EOL;
+            echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
         }
         break;
 
@@ -966,45 +999,45 @@ switch ($action) {
 
     case 'status':
         // TODO: Handle status action
-        mySkoda::printStatus();
+        skodaLnxCmd::printStatus();
         break;
     case 'json':
         // TODO: Handle status action
-        mySkoda::printJsonStatus();
+        skodaLnxCmd::printJsonStatus();
         break;
     case 'reset':
-        mySkoda::reset();
+        skodaLnxCmd::reset();
         break;
     case 'ac-off':
-        if (myskoda::stopAirConditioning()) {
+        if (skodaLnxCmd::stopAirConditioning()) {
             echo "Air conditioning has been stopped.\n";
         } else {
             echo "An error occurred" . PHP_EOL;
-            echo myskoda::getErrorMsg() . PHP_EOL;
+            echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
         }
         break;
     case 'charge':
     case 'charge-on':
-        if (myskoda::startCharging()) {
-            if (mySkoda::getErrorMsg()) {
-                echo mySkoda::getErrorMsg() . PHP_EOL ;
+        if (skodaLnxCmd::startCharging()) {
+            if (skodaLnxCmd::getErrorMsg()) {
+                echo skodaLnxCmd::getErrorMsg() . PHP_EOL ;
             }
             echo "Charging has been started.\n";
         } else {
             echo "An error occurred" . PHP_EOL;
-            echo myskoda::getErrorMsg() . PHP_EOL;
+            echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
         }
         break;
     case 'charge-off':
-        if (myskoda::stopCharging()) {
+        if (skodaLnxCmd::stopCharging()) {
             echo "Charging has been paused.\n";
         } else {
             echo "An error occurred" . PHP_EOL;
-            echo myskoda::getErrorMsg() . PHP_EOL;
+            echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
         }
         break;
     case 'support':
-        $d=mySkoda::getVehicleSupport();
+        $d=skodaLnxCmd::getVehicleSupport();
         echo "Vehicle claim to support:\n";
         foreach ($d['functions'] as $v) {
             echo "* {$v}\n";

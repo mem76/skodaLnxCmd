@@ -1,0 +1,26 @@
+name: PHPStan
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+
+jobs:
+  phpstan:
+    runs-on: ubuntu-latest
+
+    container:
+      image: ghcr.io/phpstan/phpstan:latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run PHPStan
+        run: |
+          phpstan analyse \
+            --level=0 \
+            --no-progress \
+            .
