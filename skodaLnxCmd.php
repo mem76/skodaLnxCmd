@@ -880,7 +880,7 @@ class skodaLnxCmd extends skodaApi {
         if (self::isCharging()) {
             $print[0][1] = "Is charging";
             $print[1][1] = mb_str_pad("Charging power:", 16) . self::getChargingPower() . ' kW';
-            $print[2][1] = mb_str_pad("Sharing rate:", 16) . self::getChargeRate() . ' km/h';
+            $print[2][1] = mb_str_pad("Charging rate:", 16) . self::getChargeRate() . ' km/h';
             if (self::getChargingState()=='CONSERVING') {
                 $print[3][1] = "Done charging";
             } else {
