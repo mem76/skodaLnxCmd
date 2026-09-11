@@ -41,6 +41,35 @@ class skodaApi
     private static array $errorLog = array();
 
     /**
+     * Return min max time of the 'getCarCapturedTimestamp'
+     *
+     * This value shows when the data in question was from the
+     * car to Škoda.
+     * @return array
+     */
+    public static function getCarCapturedTimestamps () : array
+    {
+        $status = self::getStatus();
+        $return = array();
+        $dates = array();
+        array_walk_recursive($status, function ($value, $key) use (&$dates) {
+            if ($key === 'carCapturedTimestamp') {
+                try {
+                    $dates[] = (new DateTimeImmutable($value))->getTimestamp();
+                } catch (DateMalformedStringException $e) {
+                    echo "Invalid date string: {$e->getMessage()}\n";
+                    exit();
+                }
+            }
+        });
+        if (count($dates) === 0) {
+            return array();
+        }
+        $return['min'] = date('Y-m-d\TH:iP', min($dates));
+        $return['max'] = date('Y-m-d\TH:iP', max($dates));
+        return $return;
+    }
+    /**
      * Get estimated charge compete.
      * @return string|null Date/time in ISO format.
      */
@@ -851,6 +880,55 @@ class skodaLnxCmd extends skodaApi {
         echo "©2026 MEM76: https://github.com/mem76/skodaLnxCmd" . PHP_EOL;
         exit();
     }
+
+    /**
+     * @return string[]
+     */
+    public static function timeSinceCarDataFetch(): array
+    {
+        $time = self::getCarCapturedTimestamps();
+        foreach (array('max', 'min') as $key) {
+            if (key_exists($key, $time)) {
+                $unixTimestamp = strtotime($time[$key]);
+                $time[$key] = self::convertSecondsToTime(time() - $unixTimestamp);
+            }
+        }
+        return $time;
+    }
+
+    /**
+     * Returns string 1:04 hours or 2 days
+     * @param int $seconds Number of seconds (positive numbers)
+     * @return string
+     */
+    protected static function convertSecondsToTime(int $seconds): string
+    {
+        $hours = (int)floor($seconds / 3600);
+        $minutes = (int)floor($seconds / 60 % 60);
+        $seconds = $seconds % 60;
+        if ($hours > 23) {
+            if ($hours > 47) {
+                $txt = ' days';
+            } else {
+                $txt = ' day';
+            }
+            return floor($hours / 24) . $txt;
+        }
+        if ($hours) {
+            if ($hours > 9) {
+                return $hours . ' hours';
+            }
+            return sprintf("%02d:%02d hours", $hours, $minutes);
+        } elseif ($minutes) {
+            if ($minutes == 1) {
+                return $minutes . ' minute';
+            }
+            return $minutes . ' minutes';
+        } else {
+            return  $seconds . ' seconds';
+        }
+    }
+
     public static function printJsonStatus(): void
     {
         $a = array();
@@ -920,12 +998,20 @@ class skodaLnxCmd extends skodaApi {
         }
 
         $rateArray = self::getRateLimitStatus();
+        $updateTimes=self::timeSinceCarDataFetch();
         $rate = 'Rate limit: '
                 . $rateArray['ratelimit-remaining'] . '/' . $rateArray['ratelimit-limit']
                 . ' (' . floor(
                         ($rateArray['ratelimit-reset'] - (time() - $rateArray['timestamp']))
                         / 60) . ' minutes left)';
         echo mb_str_pad('# ' . $rate, $width - 1) . '#' . PHP_EOL;
+        if (count($updateTimes)) {
+            if ($updateTimes['min'] == $updateTimes['max']) {
+                echo mb_str_pad('# Reported by car: ' . $updateTimes['min'] . ' ago', $width - 1) . '#' . PHP_EOL;
+            } else {
+                echo mb_str_pad('# Reported by car: ' . $updateTimes['min'] . ' - ' . $updateTimes['max'] . ' ago', $width - 1) . '#' . PHP_EOL;
+            }
+        }
         echo mb_str_pad('# ' . "Key expires: " . $rateArray['x-api-key-expires-at'], $width - 1) . '#' . PHP_EOL;
         echo mb_str_pad('#', $width, '#') . PHP_EOL;
     }
