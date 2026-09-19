@@ -851,9 +851,19 @@ class skodaApi
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
         }
-        //TODO: Add code
-        return null;
-
+        if (empty(self::$vin) || empty(self::$key)) {
+            self::setErrorMsg('Cars VIN and/or API-KEY not set.');
+            return null;
+        }
+        $uri = self::API_HOST . '/vehicles/' . self::$vin . '/active-ventilation/stop';
+        $option = array('http_method' => 'POST');
+        $ret = self::_apiFetch($uri, array(), $option);
+        if ($ret['http_code'] < 300) {
+            self::purgeCache();
+            return true;
+        }
+        self::errorHandling($ret);
+        return false;
     }
 
     public static function stopAirConditioning()
