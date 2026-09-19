@@ -540,6 +540,49 @@ class skodaApi
         return null;
     }
 
+    /**
+     * Return Charge Current setting
+     * 
+     * This setting is shown as "Current limiting" in the APP as per Sep. 2026.
+     * 
+     * @return string Returns the "Current limiting" setting
+     * Valid return strings as Sep. 2026
+     * * REDUCED Charge at reduced AC current (limits 8A in europe and 10A in the US.)..
+     * * MAXIMUM Charge max as instructet by the EVSE.
+     * 
+     * * Newer implementaion uses getMaxChargeCurrentAcAmpere
+     */
+    public static function getMaxChargeCurrentAc() :string
+    {
+        $status = self::getStatus();
+        if (empty($status['vehicle']['charging']['settings']['maxChargeCurrentAc'])) {
+            return '';
+        }
+        if (!is_string($status['vehicle']['charging']['settings']['maxChargeCurrentAc'])){
+            return '';
+        }
+        return $status['vehicle']['charging']['settings']['maxChargeCurrentAc'];
+    }
+
+    /**
+     * Returns the charge setting for "max charging current" in amps.
+     * 
+     * @return int|null Amps 5 to 32
+     * 
+     * Return null if the car does not support this setting.
+     */
+    public static function getMaxChargeCurrentAcAmpere() :?int
+    {
+        $status = self::getStatus();
+        if (empty($status['vehicle']['charging']['settings']['maxChargeCurrentAcAmpere'])) {
+            return null;
+        }
+        if (!is_numeric($status['vehicle']['charging']['settings']['maxChargeCurrentAc'])){
+            return null;
+        }
+        return (int)$status['vehicle']['charging']['settings']['maxChargeCurrentAc'];
+    }
+
     public static function getLockedStatus(): ?string
     {
         $status = self::getStatus();
@@ -957,6 +1000,11 @@ class skodaLnxCmd extends skodaApi {
 
         if (self::isCharging()) {
             $print[0][1] = "Is charging";
+            if( skodaApi::getMaxChargeCurrentAcAmpere() > 32) {
+                $print[0][1] .= ' (Reduced charge current: ' . skodaApi::getMaxChargeCurrentAcAmpere() . 'A)';
+            } elseif (skodaApi::getMaxChargeCurrentAc() == 'REDUCED') {
+                $print[0][1] .= " (Reduced charge current)";
+            }
             $print[1][1] = mb_str_pad("Charging power:", 16) . self::getChargingPower() . ' kW';
             $print[2][1] = mb_str_pad("Charging rate:", 16) . self::getChargeRate() . ' km/h';
             if (self::getChargingState()=='CONSERVING') {
