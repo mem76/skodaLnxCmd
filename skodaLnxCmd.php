@@ -959,29 +959,18 @@ class skodaLnxCmd extends skodaApi {
      */
     protected static function convertSecondsToTime(int $seconds): string
     {
-        $hours = (int)floor($seconds / 3600);
-        $minutes = (int)floor($seconds / 60 % 60);
+        $hours = floor($seconds / 3600);
+        $minutes = floor($seconds / 60 % 60);
         $seconds = $seconds % 60;
         if ($hours > 23) {
-            if ($hours > 47) {
-                $txt = ' days';
-            } else {
-                $txt = ' day';
-            }
-            return floor($hours / 24) . $txt;
+            return floor($hours / 24) . " days";
         }
         if ($hours) {
-            if ($hours > 9) {
-                return $hours . ' hours';
-            }
             return sprintf("%02d:%02d hours", $hours, $minutes);
-        } elseif ($minutes) {
-            if ($minutes == 1) {
-                return $minutes . ' minute';
-            }
-            return $minutes . ' minutes';
+        } elseif ($minutes > 4) {
+            return sprintf("%02d minutes", $minutes);
         } else {
-            return  $seconds . ' seconds';
+            return sprintf("%02d:%02d minutes", $minutes, $seconds);
         }
     }
 
