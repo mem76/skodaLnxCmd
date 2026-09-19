@@ -985,6 +985,19 @@ class skodaLnxCmd extends skodaApi {
         }
     }
 
+    public static function isCLI(): bool
+    {
+        return (PHP_SAPI === 'cli');
+    }
+
+    /**
+     * @return string One of 'Windows', 'BSD', 'Darwin', 'Solaris', 'Linux' or 'Unknown'
+     */
+    public static function OS(): string
+    {
+        return PHP_OS_FAMILY;
+    }
+
     public static function printJsonStatus(): void
     {
         $a = array();
