@@ -899,13 +899,16 @@ class skodaApi
 class skodaLnxCmd extends skodaApi {
     public static function help(): void
     {
+        $cmd='skodaLnxCmd.php';
+        $col=strlen($cmd) + 10;
         echo "HELP " . PHP_EOL . PHP_EOL;
         echo "Options:" . PHP_EOL;
-        echo "skoda.status AC:      Turn on AC (heat/cool)." . PHP_EOL;
-        echo "skoda.status heat:    Turn on heat (Webasto?)." . PHP_EOL;
-        echo "skoda.status reset:   Reset AC and heat" . PHP_EOL;
-        echo "skoda.status status:  Display status." . PHP_EOL;
-        echo "skoda.status support: What do you car support." . PHP_EOL;
+        echo mb_str_pad("$cmd AC:", $col)      . "Turn on AC (heat/cool) [EVs and PHEVs]." . PHP_EOL;
+        echo mb_str_pad("$cmd heat:", $col)    . "Turn on heat (Webasto/Eberspächer) [ICE vehicles]." . PHP_EOL;
+        echo mb_str_pad("$cmd vent:", $col)    . "Turn on fan for cooling [ICE vehicles]" . PHP_EOL;
+        echo mb_str_pad("$cmd reset:", $col)   . "Reset AC and heat" . PHP_EOL;
+        echo mb_str_pad("$cmd status:", $col)  . "Display status." . PHP_EOL;
+        echo mb_str_pad("$cmd support:", $col) . "What do you car support." . PHP_EOL;
         echo PHP_EOL . PHP_EOL;
         echo "Config:"
                 . "The script needs the VIN and API key. The pin will be requested if not found." . PHP_EOL
