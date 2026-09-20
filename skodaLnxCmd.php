@@ -215,6 +215,15 @@ class skodaApi
         if (isset(self::$_CACHE[$cacheID])) {
             return self::$_CACHE[$cacheID];
         }
+        if (file_exists('dev.skoda.status.json')) {
+            // Load local json file (for testing).
+            $jsonString = file_get_contents('dev.skoda.status.json');
+            if (json_validate($jsonString)) {
+                echo "DEV: Loading local test file" . PHP_EOL;
+                self::$_CACHE[$cacheID] = json_decode($jsonString, true);
+                return self::$_CACHE[$cacheID];
+            }
+        }
         $d = self::getCachedStatus();
         if (is_array($d)) {
             self::$_CACHE[$cacheID] = $d;
