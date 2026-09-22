@@ -1135,7 +1135,7 @@ if ($action == 'help') {
 if (!preg_match('/^(status|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
     skodaLnxCmd::requestSecurityPin();
     // Exit if PIN is empty
-    if (skodaLnxCmd::isPinSet()) {
+    if (!skodaLnxCmd::isPinSet()) {
         echo "Security PIN is required.\n";
         exit(1);
     }
