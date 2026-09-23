@@ -35,7 +35,10 @@ class skodaApi
     private static ?string $key = null;
     private static ?string $pin = null;
     private static ?string $cacheDir = null;
+    /** @var int Default temp for AC and aux heater */
     private static int $heatTemp = 20;
+    /** @var int Default run time for aux heater */
+    private static int $auxHeaterRunTimeMinutes = 30;
     private static array $_CACHE = array();
     private static ?string $errorMsg = null;
     private static array $errorLog = array();
@@ -150,6 +153,10 @@ class skodaApi
         self::$errorMsg = $msg;
         self::$errorLog[] = $msg;
     }
+    public static function getErrorLog(): array
+    {
+        return self::$errorLog;
+    }
 
     /**
      * Some functions need a security pin.
@@ -256,7 +263,7 @@ class skodaApi
 
     public static function getCacheFileName(string $id = 'status'): ?string
     {
-        if ($id != 'status' && $id != 'rate') {
+        if (!preg_match('/^(status|rate|support)$/', $id)) {
             return null;
         }
         return sprintf(
@@ -475,15 +482,17 @@ class skodaApi
         if ($method == '') {
             return null;
         }
-        $status = self::getStatus();
-        if (empty($status['vehicle']['operations'])) return null;
-        foreach ($status['vehicle']['operations'] as $operation) {
-            if ($operation['name'] === $method) {
+        $support = self::getVehicleSupport();
+        if (!empty($support)) {
+            if (in_array($method, $support['functions'], true)) {
                 return true;
+            } elseif (!empty($support['method'])) {
+                self::setErrorMsg('Method not supported by vehicle: ' . $method);
+                return false;
             }
         }
-        self::setErrorMsg('Method not supported by vehicle: ' . $method);
-        return false;
+        self::setErrorMsg('Not able to fetch support list.');
+        return null;
     }
     public static function vehicleSupportChargeModes(string $mode = ''): ?bool
     {
@@ -503,10 +512,28 @@ class skodaApi
         return false;
     }
 
-    public static function getVehicleSupport(): array
+    /**
+     * Return list of the car's supported functions
+     * @param bool $noCache If true: Do not used cached date, and refresh cache.
+     * @return array
+     */
+    public static function getVehicleSupport(bool $noCache = false): array
     {
+        self::init();
+        $fileName = self::getCacheFileName('support');
+        if (rand(0, 100) == 0) {
+            // 1% chance for a cache refresh.
+            $noCache = true;
+        }
+        if (!$noCache && $fileName && file_exists($fileName)) {
+            return json_decode(file_get_contents($fileName), true);
+        }
         $status = self::getStatus();
         $return = array();
+        if (empty($status['vehicle']['operations'])) {
+            self::setErrorMsg(__FUNCTION__ . ': Vehicle support list not valid.');
+            return array();
+        }
         foreach ($status['vehicle']['operations'] as $operation) {
             $return['functions'][] = $operation['name'];
         }
@@ -514,6 +541,7 @@ class skodaApi
         foreach ($status['vehicle']['charging']['settings']['availableChargeModes'] as $mode) {
             $return['chargeModes'][] = $mode;
         }
+        self::saveCachedStatus($return, 'support');
         return $return;
     }
 
@@ -683,14 +711,68 @@ class skodaApi
         return $a;
     }
 
-    public static function startAuxiliaryHeating(?int $temp = null): ?bool
+    /**
+     * @param int $temp Temp in °C (16 - 29 °C)
+     * @param int $timeLimit Run time in minutes (10 to 60 min.)
+     * @return array
+     */
+    public static function mkHeatBody(int $temp, int $timeLimit): array
+    {
+        /* Sample
+         * {
+         * "targetTemperature": {
+         * "value": 22,
+         * "unit": "CELSIUS"
+         * },
+         * "spin": "1234",
+         * "durationInSeconds": 120,
+         * "startMode": "HEATING"
+         * }
+         * */
+        $temp = max(16, $temp);
+        $temp = min(29, $temp);
+        $timeLimit = max(10, $timeLimit);
+        $timeLimit = min(60, $timeLimit);
+        $a = array();
+        $a['targetTemperature']['value'] = $temp;
+        $a['targetTemperature']['unit'] = 'CELSIUS';
+        $a['spin'] = self::$pin;
+        $a['durationInSeconds'] = $timeLimit * 60;
+        $a["startMode"] = "HEATING";
+        return $a;
+    }
+
+    /**
+     * Turn on auxiliary heater.
+     * 
+     * Run time note:
+     * * Monthly maintenance run: It is recommended to run the heater for 10-20 min at least once a month.
+     * * Recommended minimum run: The heater should not be run for less than 10 min.
+     * * Maximum run: The heater should not be run longer than the estimated drive time (12V battery needs to charge)
+     * @param int|null $temp Temp in celcius Default: null = self::$heatTemp
+     * @param int $runTime Run time in minutes min: 10 min, default: 30 min.
+     * @return bool|null
+     */
+    public static function startAuxiliaryHeating(?int $temp = null, ?int $runTime = null): ?bool
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
         }
-        if (!$temp) $temp = self::$heatTemp;
+        if ($temp === null) $temp = self::$heatTemp;
+        if ($runTime === null) $runTime = self::$auxHeaterRunTimeMinutes;
         $temp = max(10, $temp);
         $temp = min(30, $temp);
+        $runTime = max(10, $runTime);
+        $runTime = min(60, $runTime);
+        $data = self::mkHeatBody($temp, $runTime);
+        $uri = self::API_HOST . '/vehicles/' . self::$vin . '/auxiliary-heating/start';
+        $option = array('http_method' => 'POST');
+        $ret = self::_apiFetch($uri, $data, $option);
+        if ($ret['http_code'] < 300) {
+            self::purgeCache();
+            return true;
+        }
+        self::errorHandling($ret);
         return false;
     }
     public static function startCharging(): ?bool
@@ -788,31 +870,24 @@ class skodaApi
         return false;
     }
 
-    private static function mkHeatBody($temp, $dur = 30): string
-    {
-        // limit range from 10°C to 30°C
-        $temp = max(16, $temp);
-        $temp = min(29, $temp);
-        // limit range from 5 min to 10 hours.
-        $dur = max(5, $dur);
-        $dur = min(10 * 60, $dur);
-        $a = array();
-        $a["targetTemperature"]["value"] = $temp;
-        $a["targetTemperature"]["unit"] = 'CELSIUS';
-        $a["spin"] = self::$pin;
-        $a["durationInSeconds"] = $dur * 60;
-        $a["startMode"] = "HEATING";
-        return json_encode($a);
-    }
-
     public static function startActiveVentilation()
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
         }
-        //TODO: Add code
-        return null;
-
+        if (empty(self::$vin) || empty(self::$key)) {
+            self::setErrorMsg('Cars VIN and/or API-KEY not set.');
+            return null;
+        }
+        $uri = self::API_HOST . '/vehicles/' . self::$vin . '/active-ventilation/start';
+        $option = array('http_method' => 'POST');
+        $ret = self::_apiFetch($uri, array(), $option);
+        if ($ret['http_code'] < 300) {
+            self::purgeCache();
+            return true;
+        }
+        self::errorHandling($ret);
+        return false;
     }
     protected static function errorHandling (array $array): void
     {
@@ -836,17 +911,22 @@ class skodaApi
         }
     }
 
-    public static function startAirConditioning(int $temp = 20)
+    public static function startAirConditioning(?int $temp = null): ?bool
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
         }
+        if ($temp === null) $temp = self::$heatTemp;
         $temp = max(10, $temp);
         $temp = min(30, $temp);
         $data = self::mkAcBody($temp);
         $uri = self::API_HOST . '/vehicles/' . self::$vin . '/air-conditioning/start';
         $option = array('http_method' => 'POST');
         $ret = self::_apiFetch($uri, $data, $option);
+        if ($ret==array()) {
+            self::setErrorMsg('Unknow error, no data from _apiFetch() in line ' . __LINE__);
+            return false;
+        }
         if ($ret['http_code'] < 300) {
             self::purgeCache();
             return true;
@@ -1086,6 +1166,8 @@ class skodaLnxCmd extends skodaApi {
         }
         echo mb_str_pad('# ' . "Key expires: " . $rateArray['x-api-key-expires-at'], $width - 1) . '#' . PHP_EOL;
         echo mb_str_pad('#', $width, '#') . PHP_EOL;
+        // Update support list while we have fetched the data. 
+        skodaApi::getVehicleSupport(true);
     }
     public static function reset():void
     {
@@ -1132,7 +1214,7 @@ if ($action == 'help') {
 }
 
 // Request PIN for all actions except status
-if (!preg_match('/^(status|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
+if (!preg_match('/^(status|reset|vent|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
     skodaLnxCmd::requestSecurityPin();
     // Exit if PIN is empty
     if (!skodaLnxCmd::isPinSet()) {
@@ -1148,19 +1230,26 @@ switch ($action) {
         } else {
             echo "An error occurred" . PHP_EOL;
             echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
+            print_r(skodaLnxCmd::getErrorLog());
         }
         break;
 
     case 'heat':
-        // TODO: Handle heat action
+        $ret = skodaLnxCmd::startAuxiliaryHeating();
+        if ($ret === null) {
+            echo "Function not supported by vehicle.\n";
+        }
         break;
-
+    case 'vent':
+        $ret = skodaLnxCmd::startActiveVentilation();
+        if ($ret === null) {
+            echo "Function not supported by vehicle.\n";
+        }
+        break;
     case 'status':
-        // TODO: Handle status action
         skodaLnxCmd::printStatus();
         break;
     case 'json':
-        // TODO: Handle status action
         skodaLnxCmd::printJsonStatus();
         break;
     case 'reset':
