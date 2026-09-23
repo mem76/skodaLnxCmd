@@ -403,12 +403,19 @@ class skodaApi
 
     private static function init(): void
     {
-        if (!self::$key) self::$key = self::getE('SKODA_KEY');
+        if (self::$key) {
+            return;
+        }
+        self::$key = self::getE('SKODA_KEY');
         if (!self::$pin) self::$pin = self::getE('SKODA_PIN');
         if (!self::$vin) self::$vin = self::getE('SKODA_VIN');
         if (!self::$key || !self::$vin) {
             echo "ERROR: Key and/or vin not set." . PHP_EOL . PHP_EOL;
         }
+        if(is_numeric(self::getE('SKODA_TARGET_TEMP'))) self::$heatTemp = (int)self::getE('SKODA_TARGET_TEMP');
+        if(is_numeric(self::getE('SKODA_AUX_HEATER_RUNTIME'))) 
+            self::$auxHeaterRunTimeMinutes = (int)self::getE('SKODA_AUX_HEATER_RUNTIME');
+        
         // Override timezone
         $overrideTimeZone = self::getE('SKODA_TIMEZONE');
         if (in_array($overrideTimeZone, DateTimeZone::listIdentifiers(), true)) {
