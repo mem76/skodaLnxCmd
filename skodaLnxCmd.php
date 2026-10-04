@@ -159,6 +159,30 @@ class skodaApi
     }
 
     /**
+     * Set VIN number
+     *
+     * Set VIN via alternative method
+     * @param string $vin
+     * @return void
+     */
+    public static function setVinNumber(string $vin):void
+    {
+        self::$vin = $vin;
+    }
+
+    /**
+     * Set API key
+     *
+     * Set API key via alternative method
+     * @param string $key
+     * @return void
+     */
+    public static function setApiKey(string $key):void
+    {
+        self::$key = $key;
+    }
+
+    /**
      * Some functions need a security pin.
      * @param int|string $pin
      * @return void
