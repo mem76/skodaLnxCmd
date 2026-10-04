@@ -8,6 +8,41 @@ This application allows you to:
 * Start the AC from command line
 * Start the AC or charging via a cron job
 
+## A building block
+
+SkodaLnxCmd is build to be a building block, with a simplified API/command line that can be used by other applications or an end user.
+
+```mermaid
+flowchart TD
+   car(["Veichle"]) <--> skoda["Škoda API server"]
+   skoda <--> SkodaLnxCmd
+   SkodaLnxCmd <--> Munin
+   SkodaLnxCmd <--> HA["Home Assistant"]
+   SkodaLnxCmd <--> Cron.d
+   SkodaLnxCmd --> Grafana
+```
+
+## Home Assistant
+
+The script also works in Home Assistant, a installer is currently being work on (ref: https://github.com/mem76/skodaLnxCmd-ha-addon).
+
+### Upcoming support:
+
+* [x] Charging on/off `v0.1`
+* [ ] Implement a HomeAssistant repo (for GUI install in HA) `v0.1.x`
+* [ ] Stabilize REST api towards HA `v0.2`
+* [ ] AC on/off (EVs) `v0.3`
+* [ ] Heater on (ICE cars) `v0.4`
+* [ ] Fan on (ICE cars) `v0.5`
+* [ ] Add "slow charge toggle" (limit to 8A)". `v0.6`
+* [ ] Reduce log noise during API outages `v0.7`
+* [ ] Implement data from ICE and hybrid cars.
+* [ ] Better fallback if 12V battery is low.
+* [ ] Enable auto population (no need for editing config file) `v1.0`
+* [ ] Create documentation for people with multiple cars.
+
+![](imgs/Home_Assitant_Skoda_Public_API.png)
+
 ## Technology
 
 This application use PHP 8.3 or newer with the `php-curl`, `php-json`. The code has no additional dependency. 

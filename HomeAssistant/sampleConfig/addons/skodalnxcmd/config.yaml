@@ -1,0 +1,16 @@
+name: "Skoda API Service"
+version: "0.0.11"
+slug: "skodalnxcmd_service"
+description: "PHP container to run SkodaLnxCmd."
+startup: "once"
+arch:
+  - amd64
+  - aarch64
+options:
+  SKODA_VIN: "TMBNG123456789012"
+  SKODA_KEY: "msk_xxxxxxxxxxxx"
+  SKODA_PIN: "1234"
+schema:
+  SKODA_VIN: str
+  SKODA_KEY: password
+  SKODA_PIN: password
