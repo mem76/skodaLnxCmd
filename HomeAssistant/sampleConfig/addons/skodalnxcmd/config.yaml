@@ -1,0 +1,25 @@
+name: "Skoda API Service"
+version: "0.0.1"
+slug: "skodalnxcmd_service"
+description: "PHP container to run SkodaLnxCmd."
+image: "ghcr.io/mem76/skodalnxcmd"
+startup: "once"
+entrypoint: "sleep infinity"
+arch:
+  - amd64
+  - aarch64
+# Define the default values
+options:
+  SKODA_VIN: "TMBNG123456789012"
+  SKODA_KEY: "msk_xxxxxxxxxxxx"
+  SKODA_PIN: "1234"
+# Define the UI fields and types
+schema:
+  SKODA_VIN: str
+  SKODA_KEY: password
+  SKODA_PIN: password
+# THIS maps env var to internal names
+environment:
+  SKODA_VIN: "SKODA_VIN"
+  SKODA_KEY: "SKODA_KEY"
+  SKODA_PIN: "SKODA_PIN"
