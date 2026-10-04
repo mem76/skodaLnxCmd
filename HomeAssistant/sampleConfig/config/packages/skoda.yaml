@@ -1,0 +1,54 @@
+  rest_command:
+    skoda_ac_on:
+      url: "http://local-skodalnxcmd-service:8080/ac/on"
+      method: POST
+    
+    skoda_ac_off:
+      url: "http://local-skodalnxcmd-service:8080/ac/off"
+      method: POST
+  
+  rest:
+    - resource: http://local-skodalnxcmd-service:8080/status
+      scan_interval: 600
+      sensor:
+        - name: "Skoda State of Charge"
+          unique_id: skoda_soc
+          value_template: "{{ value_json.soc }}"
+          unit_of_measurement: "%"
+          icon: mdi:car-electric
+
+        - name: "Skoda Range"
+          unique_id: skoda_range
+          value_template: "{{ value_json.range }}"
+          unit_of_measurement: "km"
+
+        - name: "Skoda Odometer"
+          value_template: "{{ value_json.odometer }}"
+          unit_of_measurement: "km"
+          icon: mdi:counter
+
+        - name: "Skoda Parking Location"
+          value_template: "{{ value_json.parking_location }}"
+          icon: mdi:map-marker
+
+        - name: "Skoda Charge Completion"
+          value_template: "{{ value_json.charge_done }}"
+          device_class: timestamp
+          icon: mdi:clock-check-outline
+
+        - name: "Skoda Charging Power"
+          value_template: "{{ value_json.charge_power | float(0) }}"
+          unit_of_measurement: "kW"
+          device_class: power
+          state_class: measurement
+          icon: mdi:lightning-bolt
+
+        - name: "Skoda Charging Rate"
+          value_template: "{{ value_json.charge_rate | float(0) }}"
+          unit_of_measurement: "km/h"
+          state_class: measurement
+          icon: mdi:speedometer
+
+        - name: "Skoda Locked"
+          value_template: "{{ value_json.locked }}"
+          icon: mdi:car-door-lock

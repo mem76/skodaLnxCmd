@@ -8,6 +8,27 @@ This application allows you to:
 * Start the AC from command line
 * Start the AC or charging via a cron job
 
+## Home Assistant
+
+The script also works in Home Assistant, as of now only status.
+
+### Upcoming support:
+
+* [ ] Charging on/off `v0.1`
+* [ ] Implement a HomeAssistant repo (for GUI install in HA) `v0.1.x`
+* [ ] Stabilize REST api towards HA `v0.2`
+* [ ] AC on/off (EVs) `v0.3`
+* [ ] Heater on (ICE cars) `v0.4`
+* [ ] Fan on (ICE cars) `v0.5`
+* [ ] Reduce log noise during API outages `v0.6`
+* [ ] Implement data from ICE and hybrid cars.
+* [ ] Add "limit charge amp (to 8A)" toggle.
+* [ ] Better fallback if 12V battery is low.
+* [ ] Enable auto population (no need for editing config file) `v1.0`
+* [ ] Create documentation for people with multiple cars.
+
+![](imgs/Home_Assitant_Skoda_Public_API.png)
+
 ## Technology
 
 This application use PHP 8.3 or newer with the `php-curl`, `php-json`. The code has no additional dependency. 

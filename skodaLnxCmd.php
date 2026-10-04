@@ -238,6 +238,21 @@ class skodaApi
         }
         return null;
     }
+    public static function isCableConnected(): bool
+    {
+        if (self::isCharging()) {
+            // If charging => the cable must be connected.
+            return true;
+        }
+        $status = self::getStatus();
+        $charge = $status['vehicle']['charging']['status']['state'];
+        if (preg_match('/^(CONNECT_CABLE|READY_FOR_CHARGING)$/', $charge)) {
+            return true;
+        }
+        // TODO: Chack other states.
+        return false;
+        
+    }
 
     private static function getStatus()
     {
@@ -343,7 +358,23 @@ class skodaApi
         if (getenv($id)) {
             return getenv($id);
         }
-        return self::getConfigValue(self::getConfigFileName(), $id);
+        $return=self::getConfigValue(self::getConfigFileName(), $id);
+        if ($return) {
+            return $return;
+        }
+        if (file_exists('/.env')) {
+            // Running inside a Docker container?
+            return self::getConfigValue('/.env', $id);
+        } 
+        // HomeAssistant (options from HA that is mounted into the container)
+        if (file_exists('/data/options.json') && json_validate(file_get_contents('/data/options.json'))) {
+            $jsonString = file_get_contents('/data/options.json');
+            $jsonArray = json_decode($jsonString, true);
+            if (isset($jsonArray[$id])) {
+                return $jsonArray[$id];
+            }
+        }
+        return null;
     }
 
     private static function getConfigValue(string $filename, string $key): ?string
@@ -508,7 +539,7 @@ class skodaApi
         return true;
     }
 
-    protected static function vehicleSupport(string $method = ''): ?bool
+    protected static function vehicleSupport(string $method = '', bool $silent = false): ?bool
     {
         if ($method == '') {
             return null;
@@ -667,6 +698,20 @@ class skodaApi
             return (int)$status['vehicle']['odometer']['mileageInKm'];
         }
         return null;
+    }
+
+    public static function getParkingCoordinates(): array
+    {
+        $status = self::getStatus();
+        if(!empty($status['vehicle']['parkingPosition'])) {
+            if (key_exists('gpsCoordinates', $status['vehicle']['parkingPosition'])) {
+                return $status['vehicle']['parkingPosition']['gpsCoordinates'];
+            }
+        }
+        return array(
+                'latitude' => null,
+                'longitude' => null 
+        );
     }
 
     public static function getParkingLocation(): ?string
@@ -898,6 +943,10 @@ class skodaApi
         if (self::$pin) {
             return true;
         }
+        if (self::getE('SKODA_PIN')) {
+            self::$pin = self::getE('SKODA_PIN');
+            return true;
+        }
         return false;
     }
 
@@ -1110,15 +1159,50 @@ class skodaLnxCmd extends skodaApi {
     public static function printJsonStatus(): void
     {
         $a = array();
-        $a['charge_done'] = self::getChargeDone();
-        $a['charge_power'] = self::getChargingPower();
-        $a['charge_rate'] = self::getChargeRate();
-        $a['locked'] = self::getLockedStatus();
+        $a['capabilities'] = self::getCapabilityArray();
+        if (empty($a['capabilities']['charging'])) {
+            $a['charging'] = null;
+            $a['charge_cable_connected'] = null;
+            $a['charge_done'] = null;
+            $a['charge_power'] = null;
+            $a['charge_rate'] = null;
+        } else {
+            $a['charging'] = self::isCharging();
+            $a['charge_cable_connected'] = self::isCableConnected();
+            $a['charge_done'] = self::getChargeDone();
+            $a['charge_power'] = self::getChargingPower();
+            $a['charge_rate'] = self::getChargeRate();
+        }
+        $a['ac']=self::getAcStatus();
+        $a['ac_state']=self::getAcStatusValue();
+        $a['ac_target_temp']=self::getAcTargetTemp();
+        $a['aux_heat']=null;
+        $a['ventilation']=null;
+        $a['locked_status'] = self::getLockedStatus();
+        $a['locked'] = $a['locked_status'] === 'YES';
         $a['odometer'] = self::getOdo();
         $a['parking_location'] = self::getParkingLocation();
+        $a['parking_coordinates']= self::getParkingCoordinates();
         $a['range'] = self::getRange();
         $a['soc'] = self::getSoc();
+        $a['meta'] = self::createMetaArray();
         echo json_encode($a, JSON_UNESCAPED_UNICODE, JSON_PRETTY_PRINT);
+    }
+    protected static function createMetaArray(): array
+    {
+        $a = array();
+        $meta=self::getRateLimitStatus();
+        $a['rate_limit_reset'] = is_numeric($meta['ratelimit-reset']) ? (int)$meta['ratelimit-reset'] : null;
+        $a['rate_limit_remaining'] = is_numeric($meta['ratelimit-remaining']) ? (int)$meta['ratelimit-remaining'] : null;
+        $a['rate_limit'] = is_numeric($meta['ratelimit-limit']) ? (int)$meta['ratelimit-limit'] : null;
+        $a['key_expires_date'] = !empty($meta['x-api-key-expires-at']) ? $meta['x-api-key-expires-at'] : null;
+        $a['cache_timestamp'] = key_exists('timestamp', $meta) ? $meta['timestamp'] : null;
+        $a['cache_age'] = !empty($a['meta']['cache_timestamp']) ? time() - $a['meta']['cache_timestamp'] : null;
+        $update = self::getCarCapturedTimestamps();
+        $a["vehicle_report_timestamp_min"] = $update['min'];
+        $a["vehicle_report_timestamp_max"] = $update['max'];
+        return $a;
+        
     }
     public static function printStatus(): void
     {
@@ -1217,6 +1301,15 @@ class skodaLnxCmd extends skodaApi {
         self::setSecurityPin($pin);
     }
 
+    private static function getCapabilityArray() :array
+    {
+        return  [
+                'ac' => self::vehicleSupport('startAirConditioning', true)
+                        && self::vehicleSupport('stopAirConditioning', true),
+                'charging' => self::vehicleSupport('startCharging', true)
+                        && self::vehicleSupport('stopCharging', true),
+        ];
+    }
 }
 
 
