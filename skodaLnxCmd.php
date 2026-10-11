@@ -728,6 +728,53 @@ class skodaApi
     }
 
     /**
+     * Return current charging profile
+     * @return array|null
+     */
+    protected static function getChargingProfile(): ?array
+    {
+        // TODO: Use vehicleSupport to prevent API fetch for ICE 
+        $status = self::getStatus();
+        // vehicle.chargingProfiles.currentVehiclePositionProfile
+        if (empty($status['vehicle']['chargingProfiles']['currentVehiclePositionProfile'])) {
+            return null;
+        }
+        return $status['vehicle']['chargingProfiles']['currentVehiclePositionProfile'];
+    }
+
+    /**
+     * Returns current charging profile name
+     * @return string|null
+     */
+    public static function getChargingProfileName(): ?string
+    {
+        $prof = self::getChargingProfile();
+        if (empty($prof)) {
+            return null;
+        }
+        if (key_exists('name', $prof)) {
+            return $prof['name'];
+        }
+        return null;
+    }
+
+    /**
+     * Returns current charging profile id
+     * @return string|null
+     */
+    public static function getChargingProfileId(): ?int
+    {
+        $prof = self::getChargingProfile();
+        if (empty($prof)) {
+            return null;
+        }
+        if (key_exists('id', $prof) && is_numeric($prof['id'])) {
+            return (int)$prof['id'];
+        }
+        return null;
+    }
+
+    /**
      * Remaining range in km
      * @return int|null
      */
@@ -1166,12 +1213,16 @@ class skodaLnxCmd extends skodaApi {
             $a['charge_done'] = null;
             $a['charge_power'] = null;
             $a['charge_rate'] = null;
+            $a['charging_profile_name'] = null;
+            $a['charging_profile_id'] = null;
         } else {
             $a['charging'] = self::isCharging();
             $a['charge_cable_connected'] = self::isCableConnected();
             $a['charge_done'] = self::getChargeDone();
             $a['charge_power'] = self::getChargingPower();
             $a['charge_rate'] = self::getChargeRate();
+            $a['charging_profile_name'] = self::getChargingProfileName();
+            $a['charging_profile_id'] = self::getChargingProfileId();
         }
         $a['ac']=self::getAcStatus();
         $a['ac_state']=self::getAcStatusValue();
