@@ -322,7 +322,7 @@ class skodaApi
      * * reduce cache time if rate-limit period is soon over
      * @return int
      */
-    private static function getCacheTtl(): int
+    protected static function getCacheTtl(): int
     {
         $ttl = 290; // 4:50 min
         if (is_numeric(self::getE('SKODA_STATUS_TTL'))) {
@@ -1251,8 +1251,10 @@ class skodaLnxCmd extends skodaApi {
         $a['rate_limit'] = is_numeric($meta['ratelimit-limit']) ? (int)$meta['ratelimit-limit'] : null;
         $a['key_expires_date'] = !empty($meta['x-api-key-expires-at']) ? $meta['x-api-key-expires-at'] : null;
         $a['cache_timestamp'] = key_exists('timestamp', $meta) ? $meta['timestamp'] : null;
+        $a['cache_ttl'] = self::getCacheTtl();
         $a['cache_age'] = !empty($a['cache_timestamp']) ? time() - $a['cache_timestamp'] : null;
         $update = self::getCarCapturedTimestamps();
+        $a['fetched_from_api'] = !empty($a['cache_timestamp']) ? date(DATE_ATOM, $a['cache_timestamp']) : null;
         $a["vehicle_report_timestamp_min"] = $update['min'];
         $a["vehicle_report_timestamp_max"] = $update['max'];
         return $a;
