@@ -246,7 +246,10 @@ class skodaApi
         }
         $status = self::getStatus();
         $charge = $status['vehicle']['charging']['status']['state'];
-        if (preg_match('/^(CONNECT_CABLE|READY_FOR_CHARGING)$/', $charge)) {
+        if (preg_match('/^(CONNECT_CABLE)$/', $charge)) {
+            return false;
+        }
+        if (preg_match('/^(READY_FOR_CHARGING)$/', $charge)) {
             return true;
         }
         // TODO: Chack other states.
