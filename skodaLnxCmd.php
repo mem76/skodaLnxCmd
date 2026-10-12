@@ -331,12 +331,16 @@ class skodaApi
         }
         $rate = self::getRateLimitStatus();
         if ($rate == array()) { //First run since reboot?
-            return 300;
+            return max(300, $ttl);
         }
         $age = time() - $rate['timestamp'];
         $rate_reset = max(0, $rate['ratelimit-reset'] - $age);
         if ($age > $rate['ratelimit-reset']) { // New period started => low TTL
             return 60;
+        }
+        if ($rate['ratelimit-remaining'] == 0) {
+            // No request left.
+            return max($rate_reset + 10, $ttl, 300);
         }
         if ($rate['ratelimit-remaining'] <= 6) {
             // Keep 6 req/hour for commands (20 - 1req/5min = 6)
