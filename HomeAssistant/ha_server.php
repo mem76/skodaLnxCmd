@@ -72,11 +72,15 @@ function homeAssistantConfig(): void
         </style>
     </head>
     <body>
+    <h3>Fetch data from car</h3>
+    <pre><?php echo shell_exec('skodaLnxCmd status 2>/dev/null'); ?></pre>
+    <h3>Claimed car support</h3>
+    <pre><?php echo shell_exec('skodaLnxCmd support 2>/dev/null'); ?></pre>
     <h3>Škoda Configuration Package</h3>
     <p>Add the following two lines into /config/configuration.yaml</p>
     <pre>homeassistant:
 packages: !include_dir_named packages</pre>
-    <p>Copy this auto-configured block into your <code>/config/packages/skoda.yaml</code> file:</p>
+    <p>Copy this autoconfigured block into your <code>/config/packages/skoda.yaml</code> file:</p>
 
     <pre id="configBlock"><?php echo htmlspecialchars($yamlContent); ?></pre>
 
