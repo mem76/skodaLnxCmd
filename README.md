@@ -14,9 +14,9 @@ SkodaLnxCmd is build to be a building block, with a simplified API/command line 
 
 ```mermaid
 flowchart TD
-   car(["Veichle"]) <--> skoda["Škoda API server"]
+   car(["Vehicle"]) <--> skoda["MyŠkoda API server"]
    skoda <--> SkodaLnxCmd
-   SkodaLnxCmd <--> Munin
+   SkodaLnxCmd --> Munin
    SkodaLnxCmd <--> HA["Home Assistant"]
    SkodaLnxCmd <--> Cron.d
    SkodaLnxCmd --> Grafana
@@ -29,7 +29,7 @@ The script also works in Home Assistant, a installer is currently being work on 
 ### Upcoming support:
 
 * [x] Charging on/off `v0.1`
-* [ ] Implement a HomeAssistant repo (for GUI install in HA) `v0.1.x`
+* [x] Implement a HomeAssistant repo (for GUI install in HA) `v0.1.x`
 * [ ] Stabilize REST api towards HA `v0.2`
 * [ ] AC on/off (EVs) `v0.3`
 * [ ] Heater on (ICE cars) `v0.4`
@@ -71,6 +71,16 @@ if [ -d "$HOME/bin" ] ; then
     PATH="$HOME/bin:$PATH"
 fi
 ```
+
+### Get API key
+
+API keys are generated from `MyŠkoda`  app for Android and iPhone.
+
+* Profile
+* Smart home
+* + Create key
+
+You can generate up to 5 keys and the keys are valid for 6 months.
 
 ### Configuration
 The script needs to know you VIN number and API key. You can add them
