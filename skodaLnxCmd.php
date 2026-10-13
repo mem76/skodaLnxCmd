@@ -823,6 +823,16 @@ class skodaApi
         return $status['vehicle']['licensePlate'] ?? null;
     }
 
+    /**
+     * Returns the user set vehicle name
+     * @return string|null
+     */
+    protected static function getVehicleName(): ?string
+    {
+        $status = self::getStatus();
+        return $status['vehicle']['name'] ?? null;
+    }
+
 
     /**
      * Returns data array to send to the API.
@@ -1261,6 +1271,7 @@ class skodaLnxCmd extends skodaApi {
         $a['fetched_from_api'] = !empty($a['cache_timestamp']) ? date(DATE_ATOM, $a['cache_timestamp']) : null;
         $a["vehicle_report_timestamp_min"] = $update['min'];
         $a["vehicle_report_timestamp_max"] = $update['max'];
+        $a['vehicle_name'] = self::getVehicleName();
         return $a;
     }
     public static function printStatus(): void
