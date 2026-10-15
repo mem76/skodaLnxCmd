@@ -816,10 +816,22 @@ class skodaApi
      */
     private static function purgeCache(bool $force = false): void
     {
+        if (self::getE('SKODA_NO_CLEAR_CACHE')) {
+            return;
+        }
+        if (!$force) {
+            $ttlLimit = 2 * max(290, (int)self::getE('SKODA_STATUS_TTL'));
+            if (self::getCacheTtl() > $ttlLimit) {
+                return;
+            }
+            $rate = self::getRateLimitStatus();
+            if ($rate['ratelimit-remaining'] < 3) {
+                return;
+            }
+        }
         $fileName = self::getCacheFileName('status');
         if (file_exists($fileName)) @unlink($fileName);
     }
-
 
     protected static function getPlateNumber(): ?string
     {
