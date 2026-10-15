@@ -477,6 +477,7 @@ class skodaApi
         if (!self::$vin) self::$vin = self::getE('SKODA_VIN');
         if (!self::$key || !self::$vin) {
             echo "ERROR: Key and/or vin not set." . PHP_EOL . PHP_EOL;
+            return;
         }
         if(is_numeric(self::getE('SKODA_TARGET_TEMP'))) self::$heatTemp = (int)self::getE('SKODA_TARGET_TEMP');
         if(is_numeric(self::getE('SKODA_AUX_HEATER_RUNTIME'))) 
@@ -786,12 +787,14 @@ class skodaApi
     }
 
     /**
-     * Remaining range in km
+     * Remaining range in km () (ICE/Hybrid and EVs)
      * @return int|null
      */
     public static function getRange(): ?int
     {
         $status = self::getStatus();
+        // Detect ICE/hybrid
+        
         if (@is_numeric(($status['vehicle']['charging']['status']['battery']['remainingCruisingRangeInMeters']))) {
             return (int)($status['vehicle']['charging']['status']['battery']['remainingCruisingRangeInMeters'] / 1000);
         }
@@ -900,13 +903,13 @@ class skodaApi
 
     /**
      * Turn on auxiliary heater.
-     * 
+     *
      * Run time note:
      * * Monthly maintenance run: It is recommended to run the heater for 10-20 min at least once a month.
      * * Recommended minimum run: The heater should not be run for less than 10 min.
      * * Maximum run: The heater should not be run longer than the estimated drive time (12V battery needs to charge)
      * @param int|null $temp Temp in celcius Default: null = self::$heatTemp
-     * @param int $runTime Run time in minutes min: 10 min, default: 30 min.
+     * @param int|null $runTime Run time in minutes min: 10 min, default: 30 min.
      * @return bool|null
      */
     public static function startAuxiliaryHeating(?int $temp = null, ?int $runTime = null): ?bool
@@ -1002,6 +1005,7 @@ class skodaApi
             return null;
         }
         $valid = array();
+        // TODO: Fetch supported mode from API
         if (!in_array($mode, $valid)) {
             return null;
         }
@@ -1030,7 +1034,7 @@ class skodaApi
         return false;
     }
 
-    public static function startActiveVentilation()
+    public static function startActiveVentilation(): ?bool
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
@@ -1095,7 +1099,7 @@ class skodaApi
         return false;
     }
 
-    public static function stopActiveVentilation()
+    public static function stopActiveVentilation(): ?bool
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
@@ -1115,7 +1119,7 @@ class skodaApi
         return false;
     }
 
-    public static function stopAirConditioning()
+    public static function stopAirConditioning(): ?bool
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
@@ -1138,6 +1142,9 @@ class skodaApi
     public static function stopAuxiliaryHeating()
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
+            return null;
+        }
+        if (!self::$pin) {
             return null;
         }
         //TODO: Add code
