@@ -12,6 +12,6 @@ RUN apk add --no-cache \
 
 # Copy progtam
 COPY skodaLnxCmd.php /usr/local/bin/
-COPY HomeAssistant/ha_server.php /var/www/
+COPY ha_server.php /var/www/
 RUN chmod +x /usr/local/bin/skodaLnxCmd.php && \
     ln -s /usr/local/bin/skodaLnxCmd.php /usr/local/bin/skodaLnxCmd
