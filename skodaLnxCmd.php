@@ -1258,7 +1258,7 @@ class skodaLnxCmd extends skodaApi {
         $a['range'] = self::getRange();
         $a['soc'] = self::getSoc();
         $a['meta'] = self::createMetaArray();
-        echo json_encode($a, JSON_UNESCAPED_UNICODE, JSON_PRETTY_PRINT);
+        echo json_encode($a, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
     }
     protected static function createMetaArray(): array
     {
