@@ -24,28 +24,15 @@ flowchart TD
 
 ## Home Assistant
 
-The script also works in Home Assistant, a installer is currently being work on (ref: https://github.com/mem76/skodaLnxCmd-ha-addon).
+The script also works in Home Assistant. Home Assistant App/installer (ref: https://github.com/mem76/skodaLnxCmd-ha-addon).
 
-### Upcoming support:
-
-* [x] Charging on/off `v0.1`
-* [x] Implement a HomeAssistant repo (for GUI install in HA) `v0.1.x`
-* [ ] Stabilize REST api towards HA `v0.2`
-* [ ] AC on/off (EVs) `v0.3`
-* [ ] Heater on (ICE cars) `v0.4`
-* [ ] Fan on (ICE cars) `v0.5`
-* [ ] Add "slow charge toggle" (limit to 8A)". `v0.6`
-* [ ] Reduce log noise during API outages `v0.7`
-* [ ] Implement data from ICE and hybrid cars.
-* [ ] Better fallback if 12V battery is low.
-* [ ] Enable auto population (no need for editing config file) `v1.0`
-* [ ] Create documentation for people with multiple cars.
+[![Open your Home Assistant instance and show the add app repository dialog with a specific repository URL pre-filled.](https://my.home-assistant.io/badges/supervisor_add_addon_repository.svg)](https://my.home-assistant.io/redirect/supervisor_add_addon_repository/?repository_url=https%3A%2F%2Fgithub.com%2Fmem76%2FskodaLnxCmd-ha-addon)
 
 ![](imgs/Home_Assitant_Skoda_Public_API.png)
 
 ## Technology
 
-This application use PHP 8.3 or newer with the `php-curl`, `php-json`. The code has no additional dependency. 
+This application use PHP 8.3 or newer with `php-curl`, `php-json`, `php-posix`, `php-mbstring`. The code has no additional dependency. 
 
 ## Setup
 
