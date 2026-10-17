@@ -1283,7 +1283,7 @@ class skodaLnxCmd extends skodaApi {
         $a['parking_location'] = self::getParkingLocation();
         $a['parking_coordinates']= self::getParkingCoordinates();
         $a['range'] = self::getRange();
-        $a['soc'] = self::getSoc();
+        $a['soc'] = self::getSoc(); //Note: Hybrids have SOC even if they can not be charged.
         $a['meta'] = self::createMetaArray();
         echo json_encode($a, JSON_UNESCAPED_UNICODE|JSON_PRETTY_PRINT);
     }
