@@ -81,6 +81,10 @@ class skodaApi
         if (!self::isCharging()) {
             return null;
         }
+        if (self::getChargeRate() !== null && self::getChargeRate() <= 0) {
+            // Negative charge rate, occurs if AC uses more power than the charger brings in.
+            return null;
+        }
         $status = self::getStatus();
         $doneAt = $status['vehicle']['charging']['status']['fullyChargedAt'] ?? null;
         if (is_null($doneAt)) {
@@ -96,6 +100,20 @@ class skodaApi
      */
     protected static function getChargeDoneIn(bool $minutes=false): null|string|int
     {
+        if (!self::isCharging()) {
+            return null;
+        }
+        if (self::getChargeRate() !== null && self::getChargeRate() <= 0) {
+            // Negative charge rate, occurs if AC uses more power than the charger brings in.
+            return null;
+        }
+        if (!self::isCharging()) {
+            return null;
+        }
+        if (self::getChargeRate() !== null && self::getChargeRate() > 0) {
+            // Negative charge rate, occurs if AC uses more power than the charger brings in.
+            return null;
+        }
         // "remainingTimeToFullyChargedInMinutes" is a bad metric, the car set the value, and the API send this value
         // minutes, sometime more than an hour after it is fetched. This results in a bad experience do to bad numbers.
         // By calculating it from "fullyChargedAt" the error will be less than if the number from the API is used.
