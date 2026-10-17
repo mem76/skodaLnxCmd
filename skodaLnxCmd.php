@@ -419,6 +419,20 @@ class skodaApi
     }
 
     /**
+     * Return rendered image URI of the vehicle 
+     * @return string|null
+     */
+    public static function getRenderUrl(): ?string
+    {
+        $status = self::getStatus();
+        if (!empty($status['vehicle']['renderUrl']))
+        {
+            return $status['vehicle']['renderUrl'];
+        }
+        return null;
+    }
+
+    /**
      * @param string $uri
      * @param array $data
      * @param array $options Options array('http_method'=>'POST','timeout' => 10)
@@ -1303,6 +1317,7 @@ class skodaLnxCmd extends skodaApi {
         $a["vehicle_report_timestamp_min"] = $update['min'];
         $a["vehicle_report_timestamp_max"] = $update['max'];
         $a['vehicle_name'] = self::getVehicleName();
+        $a['vehicle_image_uri'] = self::getRenderUrl();
         return $a;
     }
     public static function printStatus(): void
