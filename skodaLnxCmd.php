@@ -1286,9 +1286,15 @@ class skodaLnxCmd extends skodaApi {
             $a['charging_profile_name'] = self::getChargingProfileName();
             $a['charging_profile_id'] = self::getChargingProfileId();
         }
-        $a['ac']=self::getAcStatus();
-        $a['ac_state']=self::getAcStatusValue();
-        $a['ac_target_temp']=self::getAcTargetTemp();
+        if (empty($a['capabilities']['ac'])) {
+            $a['ac'] = null;
+            $a['ac_state'] = null;
+            $a['ac_target_temp'] = null;
+        } else {
+            $a['ac'] = self::getAcStatus();
+            $a['ac_state'] = self::getAcStatusValue();
+            $a['ac_target_temp'] = self::getAcTargetTemp();
+        }
         $a['aux_heat']=null;
         $a['ventilation']=null;
         $a['locked_status'] = self::getLockedStatus();
