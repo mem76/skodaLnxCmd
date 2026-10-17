@@ -714,6 +714,10 @@ class skodaApi
 
     public static function getParkingCoordinates(): array
     {
+        if (self::getE('SKODA_DISABLE_GPS')) {
+            // User as opted for disabling GPS related functions
+            return array();
+        }
         $status = self::getStatus();
         if(!empty($status['vehicle']['parkingPosition'])) {
             if (key_exists('gpsCoordinates', $status['vehicle']['parkingPosition'])) {
@@ -728,6 +732,10 @@ class skodaApi
 
     public static function getParkingLocation(): ?string
     {
+        if (self::getE('SKODA_DISABLE_GPS')) {
+            // User as opted for disabling GPS related functions
+            return null;
+        }
         $status = self::getStatus();
         if(empty($status['vehicle']['parkingPosition'])) {
             return null;
