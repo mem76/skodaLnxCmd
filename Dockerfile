@@ -1,4 +1,4 @@
-FROM alpine:latest
+FROM alpine:3.24
 
 # Run latest security update. 
 RUN apk --no-cache upgrade
