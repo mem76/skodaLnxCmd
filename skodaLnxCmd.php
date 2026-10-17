@@ -765,10 +765,17 @@ class skodaApi
     public static function getOdo(): ?int
     {
         $status = self::getStatus();
-        if (@is_numeric(($status['vehicle']['odometer']['mileageInKm']))) {
-            return (int)$status['vehicle']['odometer']['mileageInKm'];
+        if (empty($status['vehicle']['odometer']['mileageInKm'])) {
+            return null;
         }
-        return null;
+        if (!@is_numeric($status['vehicle']['odometer']['mileageInKm'])) {
+            return null;
+        }
+        $return = (int)$status['vehicle']['odometer']['mileageInKm'];
+        if ($return == 0) {
+            return null;
+        }
+        return $return;
     }
 
     public static function getParkingCoordinates(): array
