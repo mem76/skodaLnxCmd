@@ -279,6 +279,33 @@ class skodaApi
         
     }
 
+    /**
+     * Use charge-profile name and parking address to detect if car "is home"
+     *  * SKODA_ISHOME_CHARGE_PROFILE
+     *  * SKODA_ISHOME_PARKING_ADDRESS
+     * @return bool|null true = is_home, null = env-var not set
+     */
+    public static function isHome(): ?bool
+    {
+        $filter_charge_profile = self::getE('SKODA_ISHOME_CHARGE_PROFILE');
+        $filter_parking_addr = self::getE('SKODA_ISHOME_PARKING_ADDRESS');
+        if (empty($filter_charge_profile) && empty($filter_parking_addr)) {
+            return null;
+        }
+        $chargeProfile = self::getChargingProfileName();
+        if (is_string($chargeProfile) && is_string($filter_charge_profile)
+                && strtolower($chargeProfile) == strtolower($filter_charge_profile)) {
+            return true;
+        }
+        $parking_addr = self::getParkingLocation();
+        if (is_string($parking_addr) && is_string($filter_parking_addr) 
+                && strlen($filter_parking_addr) > 3
+                && str_contains(strtolower($parking_addr), strtolower($filter_parking_addr))) {
+            return true;
+        }
+        return false;
+    }
+
     private static function getStatus()
     {
         self::init();
@@ -1320,6 +1347,7 @@ class skodaLnxCmd extends skodaApi {
         $a['odometer'] = self::getOdo();
         $a['parking_location'] = self::getParkingLocation();
         $a['parking_coordinates']= self::getParkingCoordinates();
+        $a['is_home'] = self::isHome();
         $a['range'] = self::getRange();
         $a['soc'] = self::getSoc(); //Note: Hybrids have SOC even if they can not be charged.
         $a['meta'] = self::createMetaArray();
