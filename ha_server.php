@@ -23,6 +23,18 @@ switch ($_SERVER['REQUEST_URI']) {
     case '/ac/on':
         passthru('php /usr/local/bin/skodaLnxCmd.php ac');
         break;
+
+    case '/heat/on':
+        passthru('php /usr/local/bin/skodaLnxCmd.php heat');
+        break;
+    
+    case '/heat/off':
+        passthru('php /usr/local/bin/skodaLnxCmd.php heat-off');
+        break;
+        
+    case '/vent/on':
+        passthru('php /usr/local/bin/skodaLnxCmd.php vent');
+        break;
     
     case '/ac/off':
     case '/hvac/reset':

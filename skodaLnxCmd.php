@@ -1213,7 +1213,7 @@ class skodaApi
         return false;
     }
 
-    public static function stopAuxiliaryHeating()
+    public static function stopAuxiliaryHeating(): ?bool
     {
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
@@ -1221,8 +1221,16 @@ class skodaApi
         if (!self::$pin) {
             return null;
         }
-        //TODO: Add code
-        return null;
+        $uri = self::API_HOST . '/vehicles/' . self::$vin . '/auxiliary-heating/stop';
+        $option = array('http_method' => 'POST');
+        $ret = self::_apiFetch($uri, array(), $option);
+        if ($ret['http_code'] < 300) {
+            self::purgeCache();
+            //HTTP 202 = heater turned off
+            return true;
+        }
+        self::errorHandling($ret);
+        return false;
     }
 
     public static function updateChargingProfile()
@@ -1541,6 +1549,12 @@ switch ($action) {
     case 'heat':
     case 'heat-on':
         $ret = skodaLnxCmd::startAuxiliaryHeating();
+        if ($ret === null) {
+            echo "Function not supported by vehicle.\n";
+        }
+        break;
+    case 'heat-off':
+        $ret = skodaLnxCmd::stopAuxiliaryHeating();
         if ($ret === null) {
             echo "Function not supported by vehicle.\n";
         }
