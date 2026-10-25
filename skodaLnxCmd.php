@@ -1524,6 +1524,7 @@ if (!preg_match('/^(status|reset|vent|json|support|ac(|-off)|charge(|-on|-off))$
 
 switch ($action) {
     case 'ac':
+    case 'ac-on':
         if (skodaLnxCmd::startAirConditioning()) {
             echo "Air conditioning has been started.\n";
         } else {
@@ -1534,12 +1535,14 @@ switch ($action) {
         break;
 
     case 'heat':
+    case 'heat-on':
         $ret = skodaLnxCmd::startAuxiliaryHeating();
         if ($ret === null) {
             echo "Function not supported by vehicle.\n";
         }
         break;
     case 'vent':
+    case 'vent-on':
         $ret = skodaLnxCmd::startActiveVentilation();
         if ($ret === null) {
             echo "Function not supported by vehicle.\n";
