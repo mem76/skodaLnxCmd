@@ -1355,8 +1355,20 @@ class skodaLnxCmd extends skodaApi {
             $a['ac_state'] = self::getAcStatusValue();
             $a['ac_target_temp'] = self::getAcTargetTemp();
         }
-        $a['aux_heat']=null;
-        $a['ventilation']=null;
+        if (empty($a['capabilities']['heat'])) {
+            $a['aux_heat_status'] = null;
+            $a['aux_heat'] = null;
+        } else {
+            $a['aux_heat_status'] = false;
+            $a['aux_heat'] = false;
+        }
+        if (empty($a['capabilities']['vent'])) {
+            $a['ventilation_status'] = null;
+            $a['ventilation'] = null;
+        } else {
+            $a['ventilation_status'] = false;
+            $a['ventilation'] = false;
+        }
         $a['locked_status'] = self::getLockedStatus();
         $a['locked'] = $a['locked_status'] === 'YES';
         $a['odometer'] = self::getOdo();
