@@ -1483,6 +1483,10 @@ class skodaLnxCmd extends skodaApi {
                         && self::vehicleSupport('stopAirConditioning', true),
                 'charging' => self::vehicleSupport('startCharging', true)
                         && self::vehicleSupport('stopCharging', true),
+                'heat' => self::vehicleSupport('startAuxiliaryHeating', true)
+                        && self::vehicleSupport('stopAuxiliaryHeating', true),
+                'vent' => self::vehicleSupport('startActiveVentilation', true)
+                        && self::vehicleSupport('stopActiveVentilation', true),
         ];
     }
 }
