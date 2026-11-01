@@ -1537,7 +1537,7 @@ if ($action == 'help') {
 }
 
 // Request PIN for all actions except status
-if (!preg_match('/^(status|reset|vent|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
+if (!preg_match('/^(status|reset|vent(-off)|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
     skodaLnxCmd::requestSecurityPin();
     // Exit if PIN is empty
     if (!skodaLnxCmd::isPinSet()) {
@@ -1574,6 +1574,12 @@ switch ($action) {
     case 'vent':
     case 'vent-on':
         $ret = skodaLnxCmd::startActiveVentilation();
+        if ($ret === null) {
+            echo "Function not supported by vehicle.\n";
+        }
+        break;
+    case 'vent-off':
+        $ret = skodaLnxCmd::stopActiveVentilation();
         if ($ret === null) {
             echo "Function not supported by vehicle.\n";
         }
