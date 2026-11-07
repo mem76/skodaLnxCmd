@@ -511,8 +511,12 @@ class skodaApi
             }
         }
         elseif ($http_method == 'PUT') {
-            //TODO: Add code
-            return array();
+            // Škoda API is badly implemented, use CURLOPT_CUSTOMREQUEST = PUT instead of CURLOPT_PUT = true.
+            $curlArray[CURLOPT_CUSTOMREQUEST] = $http_method;
+            if (!empty($data)) {
+                $headers[] = "Content-Type: application/json";
+                $curlArray[CURLOPT_POSTFIELDS] = json_encode($data);
+            }
         }
         
         $curlArray[CURLOPT_HTTPHEADER] = $headers;
@@ -1059,6 +1063,98 @@ class skodaApi
     }
 
     /**
+     * Set max charge current to 8A (only supported via charging profiles)
+     *
+     * @return null|bool
+     */
+    public static function setChargeCurrentSlow(): ?bool
+    {
+        if (!self::vehicleSupport('updateChargingProfile')) {
+            echo "Not supported by car";
+            return null;
+        }
+        $id = self::getChargingProfileId();
+        if ($id == null) {
+            echo "There is no active charging profile";
+            return null;
+        }
+        // From API doc: The vehicle applies the submitted profile as a whole, so send the complete profile.
+        $data = self::getChargingProfileData();
+        // settings/maxChargingCurrent
+        if (empty($data['settings']['maxChargingCurrent'])) {
+            // Data sanity check failed.
+            return null;
+        }
+        $uri = self::API_HOST . '/vehicles/' . self::$vin . '/charging-profiles/' . $id;
+        $data['settings']['maxChargingCurrent'] = 'REDUCED';
+        $opts = array('http_method' => 'PUT');
+        $result = self::_apiFetch($uri, $data, $opts);
+        if ($result['http_code'] < 300) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Set charge current to max (only supported via charging profiles)
+     * @return bool|null
+     */
+    public static function setChargeCurrentMax()
+    {
+        if (!self::vehicleSupport('updateChargingProfile')) {
+            echo "Not supported by car";
+            return null;
+        }
+        $id = self::getChargingProfileId();
+        if ($id == null) {
+            echo "There is no active charging profile";
+            return null;
+        }
+        // From API doc: The vehicle applies the submitted profile as a whole, so send the complete profile.
+        $data = self::getChargingProfileData();
+        // settings/maxChargingCurrent
+        if (empty($data['settings']['maxChargingCurrent'])) {
+            // Data sanity check failed.
+            return null;
+        }
+        $uri = self::API_HOST . '/vehicles/' . self::$vin . '/charging-profiles/' . $id;
+        $data['settings']['maxChargingCurrent'] = 'MAXIMUM';
+        $opts = array('http_method' => 'PUT');
+        $result = self::_apiFetch($uri, $data, $opts);
+        if ($result['http_code'] < 300) {
+            return true;
+        }
+        return false;
+    }
+
+    /**
+     * Fetch current charing profile data.
+     * @return array|null
+     */
+    protected static function getChargingProfileData(): ?array
+    {
+        $status = self::getStatus();
+        if (empty($status['vehicle']['chargingProfiles']['profiles'])) {
+            return null;
+        }
+        $profiles = $status['vehicle']['chargingProfiles']['profiles'];
+        if (!is_array($profiles)) {
+            return null;
+        }
+        $return = null;
+        $id = self::getChargingProfileId();
+        if ($id == null) {
+            return null;
+        }
+        foreach ($profiles as $profile) {
+            if ($profile['id'] == $id) {
+                $return = $profile;
+            }
+        }
+        return $return;
+    }
+
+    /**
      * @param string $mode
      * @return bool|null
      * 
@@ -1537,7 +1633,7 @@ if ($action == 'help') {
 }
 
 // Request PIN for all actions except status
-if (!preg_match('/^(status|reset|vent(-off)|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
+if (!preg_match('/^(status|reset|current(.*)|vent(-off)|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
     skodaLnxCmd::requestSecurityPin();
     // Exit if PIN is empty
     if (!skodaLnxCmd::isPinSet()) {
@@ -1557,7 +1653,17 @@ switch ($action) {
             print_r(skodaLnxCmd::getErrorLog());
         }
         break;
-
+    case 'current-low':
+    case 'current-min':
+        if (skodaLnxCmd::setChargeCurrentSlow()) {
+            echo "Reducing charge current" . PHP_EOL;
+        }
+        break;
+    case 'current-max':
+        if (skodaLnxCmd::setChargeCurrentMax()) {
+            echo "Set max charge current" . PHP_EOL;
+        }
+        break;
     case 'heat':
     case 'heat-on':
         $ret = skodaLnxCmd::startAuxiliaryHeating();
