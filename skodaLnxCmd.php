@@ -729,6 +729,14 @@ class skodaApi
     public static function getMaxChargeCurrentAc() :string
     {
         $status = self::getStatus();
+        // First test if we have an active charge profile, as maxChargingCurrent in profile does not show in
+        // '/vehicle/charging/settings/'.
+        if (!empty($status['vehicle']['chargingProfiles']['currentVehiclePositionProfile']['id'])){
+            $profile=self::getChargingProfileData();
+            if (!empty($profile['settings']['maxChargingCurrent']) && is_string($profile['settings']['maxChargingCurrent'])){
+                return $profile['settings']['maxChargingCurrent'];
+            }
+        }
         if (empty($status['vehicle']['charging']['settings']['maxChargeCurrentAc'])) {
             return '';
         }
