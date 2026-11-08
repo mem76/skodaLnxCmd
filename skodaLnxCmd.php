@@ -715,6 +715,41 @@ class skodaApi
     }
 
     /**
+     * @return int|null Target SoC in %
+     */
+    public static function getChargeTargetSoc(): ?int {
+        $status = self::getStatus();
+        if (!empty($status['vehicle']['chargingProfiles']['currentVehiclePositionProfile']['id'])){
+            $profile=self::getChargingProfileData();
+            if (!empty($profile['settings']['targetStateOfChargeInPercent']) && is_numeric($profile['settings']['targetStateOfChargeInPercent'])){
+                return (int)$profile['settings']['targetStateOfChargeInPercent'];
+            }
+        }
+        $socTarget = $status['vehicle']['charging']['settings']['targetStateOfChargeInPercent'] ?? null;
+        if (is_numeric($socTarget)) {
+            return (int)$socTarget;
+        }
+        return null;
+    }
+
+    /**
+     * @return string|null Charge type. Valid values as Nov 2026: "AC", "DC" or null.
+     */
+    public static function getChargeType(): ?string
+    {
+        if (!self::isCharging()) {
+            return null;
+        }
+        $status = self::getStatus();
+        // vehicle.charging.status.chargeType
+        $chargeType = $status['vehicle']['charging']['status']['chargeType'] ?? null;
+        if (is_string($chargeType)) {
+            return $chargeType;
+        }
+        return null;
+    }
+
+    /**
      * Return Charge Current setting
      * 
      * This setting is shown as "Current limiting" in the APP as per Sep. 2026.
@@ -1441,6 +1476,8 @@ class skodaLnxCmd extends skodaApi {
             $a['charge_done'] = null;
             $a['charge_power'] = null;
             $a['charge_rate'] = null;
+            $a['charge_target_soc'] = null;
+            $a['charge_type'] = null;
             $a['charging_profile_name'] = null;
             $a['charging_profile_id'] = null;
         } else {
@@ -1458,6 +1495,8 @@ class skodaLnxCmd extends skodaApi {
             $a['charge_done'] = self::getChargeDone();
             $a['charge_power'] = self::getChargingPower();
             $a['charge_rate'] = self::getChargeRate();
+            $a['charge_target_soc'] = self::getChargeTargetSoc();
+            $a['charge_type'] = self::getChargeType();
             $a['charging_profile_name'] = self::getChargingProfileName();
             $a['charging_profile_id'] = self::getChargingProfileId();
         }
