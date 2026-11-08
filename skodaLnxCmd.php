@@ -851,7 +851,7 @@ class skodaApi
             return null;
         }
         if (key_exists('name', $prof)) {
-            return $prof['name'];
+            return trim($prof['name']);
         }
         return null;
     }
