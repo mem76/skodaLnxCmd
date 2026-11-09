@@ -1096,13 +1096,55 @@ class skodaApi
         return false;
         
     }
-    public static function setChargingLimit(int $soc= 80 ) : ?bool
+
+    /**
+     * Set charge limit to active charging profile or general setting.
+     * @param int $soc Target SoC valid values: 50, 60, 70, 80, 90, 100
+     * @return bool|null
+     */
+    public static function setChargingLimit(int $soc = 80): ?bool
     {
+        /*
+         * Note: 
+         * * This function returns HTTP 500 error if it is run again before the last has been sent to the car.
+         * * The MySkoda phone app changes the active profile, while the API does not change the current profile. To
+         *   fix this this function will change the current profile.
+         */
+        $soc = (int)round($soc,-1);
+        $soc = max(50, $soc);
+        $soc = min(100, $soc);
         if (!self::vehicleSupport(__FUNCTION__)) {
             return null;
         }
-        //TODO
-        return null;
+        if (!self::filterChargingProfile()) {
+            echo "Skipping command set charging limit, wrong charging profile\n";
+            return true;
+        }
+        $id = self::getChargingProfileId();
+        if ($id) {
+            $profileData = self::getChargingProfileData();
+            if (!empty($profileData['settings']['targetStateOfChargeInPercent'])) {
+                $profileData['settings']['targetStateOfChargeInPercent'] = $soc;
+                $uri = self::API_HOST . '/vehicles/' . self::$vin . '/charging-profiles/' . $id;
+                $opts = array('http_method' => 'PUT');
+                $result = self::_apiFetch($uri, $profileData, $opts);
+                if ($result['http_code'] < 300) {
+                    return true;
+                }
+                self::errorHandling($result);
+                return false;
+            }
+        }
+        $data['targetStateOfChargeInPercent'] = $soc;
+        $opts = array('http_method' => 'PUT');
+        $uri = self::API_HOST . '/vehicles/' . self::$vin . '/charging/limit';
+        $result = self::_apiFetch($uri, $data, $opts);
+        if ($result['http_code'] < 300) {
+            self::purgeCache();
+            return true;
+        }
+        self::errorHandling($result);
+        return false;
     }
 
     /**
@@ -1286,6 +1328,25 @@ class skodaApi
             self::setErrorMsg('HTTP-'.$array["http_code"] . ": " . $msg);
             print_r($array);
         }
+    }
+
+    /**
+     * Apply filter from SKODA_CHARGE_PROFILE_FILTER
+     * @return bool Returns true if this charge-profile can be changed.
+     */
+    protected static function filterChargingProfile(): bool
+    {
+        $filter = self::getE('SKODA_CHARGE_PROFILE_FILTER');
+        if (empty($filter)) {
+            return true;
+        }
+        if (is_numeric($filter) && $filter == self::getChargingState()) {
+            return true;
+        }
+        if (is_string($filter) && $filter == self::getChargingProfileName()) {
+            return true;
+        }
+        return false;
     }
 
     public static function startAirConditioning(?int $temp = null): ?bool
@@ -1685,13 +1746,18 @@ if ($argc < 2) {
 }
 
 $action = strtolower($argv[1]);
+if (@$argv[2]) {
+    $arg = $argv[2];
+} else {
+    $arg = null;
+}
 // Help
 if ($action == 'help') {
     skodaLnxCmd::help();
 }
 
 // Request PIN for all actions except status
-if (!preg_match('/^(status|reset|current(.*)|vent(-off)|json|support|ac(|-off)|charge(|-on|-off))$/', $action)) {
+if (!preg_match('/^(status|reset|current(.*)|vent(|-off)|json|support|ac(|-off)|charging-limit|target-soc|charge(|-on|-off))$/', $action)) {
     skodaLnxCmd::requestSecurityPin();
     // Exit if PIN is empty
     if (!skodaLnxCmd::isPinSet()) {
@@ -1795,6 +1861,17 @@ switch ($action) {
         echo "Charge modes: ".PHP_EOL;
         foreach ($d['chargeModes'] as $v) {
             echo "* {$v}\n";
+        }
+        break;
+    case 'target-soc':
+    case 'charging-limit':
+        if (!is_numeric($arg)) {
+            $arg=80;
+        }
+        $arg=(int)$arg;
+        $d = skodaLnxCmd::setChargingLimit($arg);
+        if ($d) {
+            echo "Charge limit set." . PHP_EOL;
         }
         break;
 
