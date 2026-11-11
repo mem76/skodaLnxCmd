@@ -1757,7 +1757,7 @@ if ($action == 'help') {
 }
 
 // Request PIN for all actions except status
-if (!preg_match('/^(status|reset|current(.*)|vent(|-off)|json|support|ac(|-off)|charging-limit|target-soc|charge(|-on|-off))$/', $action)) {
+if (preg_match('/^(heat(|-on))$/', $action)) {
     skodaLnxCmd::requestSecurityPin();
     // Exit if PIN is empty
     if (!skodaLnxCmd::isPinSet()) {
