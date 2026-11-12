@@ -387,8 +387,8 @@ class skodaApi
         if ($age > $rate['ratelimit-reset']) { // New period started => low TTL
             return 60;
         }
-        if ($rate['ratelimit-remaining'] == 0) {
-            // No request left.
+        if ($rate['ratelimit-remaining'] < 2) { 
+            // 0 or 1 req left
             return max($rate_reset + 10, $ttl, 300);
         }
         if ($rate['ratelimit-remaining'] <= 6) {
