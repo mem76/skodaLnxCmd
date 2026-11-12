@@ -43,6 +43,10 @@ class skodaApi
     private static ?string $errorMsg = null;
     private static array $errorLog = array();
 
+    protected const int MSG_LEVEL_INFO = 1;
+    protected const int MSG_LEVEL_WARNING = 2;
+    protected const int MSG_LEVEL_ERROR = 3;
+
     /**
      * Return min max time of the 'getCarCapturedTimestamp'
      *
@@ -168,6 +172,7 @@ class skodaApi
     }
     protected static function setErrorMsg(string $msg):void
     {
+        self::serverStatus($msg, self::MSG_LEVEL_ERROR);
         self::$errorMsg = $msg;
         self::$errorLog[] = $msg;
     }
@@ -334,12 +339,23 @@ class skodaApi
         self::saveCachedStatus($data);
         return self::$_CACHE[$cacheID];
     }
+    
+    public static function getMsg() : ?array {
+        return self::getCachedStatus('msg');
+    }
 
+    /**
+     * Return cached JSON file as Array if exists. 
+     * @param string $id
+     * @return array|null
+     */
     private static function getCachedStatus(string $id = 'status'): ?array
     {
         $cacheFile = self::getCacheFileName($id);
         if ($id == 'status') {
             $ttl = self::getCacheTtl();
+        } elseif ($id == 'msg') {
+            $ttl = max(550, self::getCacheTtl());
         } else {
             $ttl = 3600;
         }
@@ -354,7 +370,7 @@ class skodaApi
 
     public static function getCacheFileName(string $id = 'status'): ?string
     {
-        if (!preg_match('/^(status|rate|support)$/', $id)) {
+        if (!preg_match('/^(status|rate|support|msg)$/', $id)) {
             return null;
         }
         return sprintf(
@@ -613,6 +629,28 @@ class skodaApi
         }
         return true;
     }
+    
+    protected static function saveMsg(array $data): bool
+    {
+        return self::saveCachedStatus($data, 'msg');
+    }
+
+    public static function serverStatus(string $string, int $level = self::MSG_LEVEL_INFO, ?int $http_code = null):void
+    {
+        if (!strlen($string)) {
+            return;
+        }
+        if ($level == self::MSG_LEVEL_INFO) $lev = 'info';
+        elseif ($level == self::MSG_LEVEL_WARNING) $lev = 'warning';
+        elseif ($level == self::MSG_LEVEL_ERROR) $lev = 'error';
+        else return;
+        $msg = array();
+        $msg['status_message'] = $string;
+        $msg['status_level'] = $lev;
+        $msg['status_timestamp'] = date(DATE_ATOM, time());
+        $msg['status_http_code'] = $http_code;
+        self::saveMsg($msg);
+    }
 
     protected static function vehicleSupport(string $method = '', bool $silent = false): ?bool
     {
@@ -623,8 +661,7 @@ class skodaApi
         if (!empty($support)) {
             if (in_array($method, $support['functions'], true)) {
                 return true;
-            } elseif (!empty($support['method'])) {
-                self::setErrorMsg('Method not supported by vehicle: ' . $method);
+            } else {
                 return false;
             }
         }
@@ -893,7 +930,7 @@ class skodaApi
 
     /**
      * Returns current charging profile id
-     * @return string|null
+     * @return int|null
      */
     public static function getChargingProfileId(): ?int
     {
@@ -1155,12 +1192,14 @@ class skodaApi
     public static function setChargeCurrentSlow(): ?bool
     {
         if (!self::vehicleSupport('updateChargingProfile')) {
+            self::serverStatus('updateChargingProfile not supported by car', self::MSG_LEVEL_WARNING);
             echo "Not supported by car";
             return null;
         }
         $id = self::getChargingProfileId();
         if ($id == null) {
             echo "There is no active charging profile";
+            self::serverStatus('No active charging profile - unable to change current limit.', self::MSG_LEVEL_WARNING);
             return null;
         }
         // From API doc: The vehicle applies the submitted profile as a whole, so send the complete profile.
@@ -1188,10 +1227,12 @@ class skodaApi
     {
         if (!self::vehicleSupport('updateChargingProfile')) {
             echo "Not supported by car";
+            self::serverStatus('updateChargingProfile not supported by car', self::MSG_LEVEL_WARNING);
             return null;
         }
         $id = self::getChargingProfileId();
         if ($id == null) {
+            self::serverStatus('No active charging profile - unable to change current limit.', self::MSG_LEVEL_WARNING);
             echo "There is no active charging profile";
             return null;
         }
@@ -1315,10 +1356,16 @@ class skodaApi
         }
         if ($array["http_code"] > 399) {
             $msg='';
-            if (key_exists("response", $array)) {
-                if (json_validate($array["response"])) {
-                    $tmp = json_decode($array["response"], true);
-                    if (key_exists('detail',$tmp)) {
+            if (key_exists("http_body", $array)) {
+                if (json_validate($array["http_body"])) {
+                    $tmp = json_decode($array["http_body"], true);
+                    if (key_exists('title',$tmp)) {
+                        $msg = $tmp['title'];
+                    }
+                    if (!empty($tmp['detail'])) {
+                        if (strlen($msg)) {
+                            $msg = $msg . " - ";
+                        }
                         $msg = $tmp['detail'];
                     }
                 } else {
@@ -1407,6 +1454,9 @@ class skodaApi
         $ret = self::_apiFetch($uri, array(), $option);
         if ($ret['http_code'] < 300) {
             self::purgeCache();
+            if ($ret['http_code'] == 202 ) {
+                self::serverStatus('AC stop command sent.');
+            } 
             return true;
         }
         self::errorHandling($ret);
@@ -1611,6 +1661,7 @@ class skodaLnxCmd extends skodaApi {
         $a["vehicle_report_timestamp_min"] = $update['min'];
         $a["vehicle_report_timestamp_max"] = $update['max'];
         $a['vehicle_name'] = self::getVehicleName();
+        $a['vehicle_plate_number'] = self::getPlateNumber();
         $a['vehicle_image_uri'] = self::getRenderUrl();
         return $a;
     }
@@ -1696,11 +1747,16 @@ class skodaLnxCmd extends skodaApi {
     }
     public static function reset():void
     {
-        self::stopActiveVentilation();
-        self::stopAirConditioning();
-        self::stopAuxiliaryHeating();
+        $vent = self::stopActiveVentilation();
+        $ac = self::stopAirConditioning();
+        $heat = self::stopAuxiliaryHeating();
+        if ($ac !== false && $heat !== false && $vent !== false) {
+            $msg = 'HVAC off command sent.';
+            self::serverStatus($msg);
+            return;
+        }
     }
-    
+
     public static function requestSecurityPin(): void
     {
         if (self::isPinSet()){
@@ -1770,22 +1826,27 @@ switch ($action) {
     case 'ac':
     case 'ac-on':
         if (skodaLnxCmd::startAirConditioning()) {
-            echo "Air conditioning has been started.\n";
+            $msg="AC start command sent.";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
         } else {
             echo "An error occurred" . PHP_EOL;
             echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
-            print_r(skodaLnxCmd::getErrorLog());
         }
         break;
     case 'current-low':
     case 'current-min':
         if (skodaLnxCmd::setChargeCurrentSlow()) {
-            echo "Reducing charge current" . PHP_EOL;
+            $msg = "Limit charge current command sent.";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
         }
         break;
     case 'current-max':
         if (skodaLnxCmd::setChargeCurrentMax()) {
-            echo "Set max charge current" . PHP_EOL;
+            $msg = "Max charge current command sent.";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
         }
         break;
     case 'heat':
@@ -1797,14 +1858,20 @@ switch ($action) {
         break;
     case 'heat-off':
         $ret = skodaLnxCmd::stopAuxiliaryHeating();
-        if ($ret === null) {
-            echo "Function not supported by vehicle.\n";
+        if ($ret) {
+            $msg = "Heating start command sent.";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
         }
         break;
     case 'vent':
     case 'vent-on':
         $ret = skodaLnxCmd::startActiveVentilation();
-        if ($ret === null) {
+        if ($ret) {
+            $msg = "Ventilation start command sent.";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
+        } elseif ($ret === null) {
             echo "Function not supported by vehicle.\n";
         }
         break;
@@ -1826,6 +1893,7 @@ switch ($action) {
     case 'ac-off':
         if (skodaLnxCmd::stopAirConditioning()) {
             echo "Air conditioning has been stopped.\n";
+            skodaLnxCmd::serverStatus("AC stop command sent.");
         } else {
             echo "An error occurred" . PHP_EOL;
             echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
@@ -1837,7 +1905,9 @@ switch ($action) {
             if (skodaLnxCmd::getErrorMsg()) {
                 echo skodaLnxCmd::getErrorMsg() . PHP_EOL ;
             }
-            echo "Charging has been started.\n";
+            $msg = "Charging has been started.";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
         } else {
             echo "An error occurred" . PHP_EOL;
             echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
@@ -1845,7 +1915,9 @@ switch ($action) {
         break;
     case 'charge-off':
         if (skodaLnxCmd::stopCharging()) {
-            echo "Charging has been paused.\n";
+            $msg = "Charging has been paused.";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
         } else {
             echo "An error occurred" . PHP_EOL;
             echo skodaLnxCmd::getErrorMsg() . PHP_EOL;
@@ -1871,7 +1943,20 @@ switch ($action) {
         $arg=(int)$arg;
         $d = skodaLnxCmd::setChargingLimit($arg);
         if ($d) {
-            echo "Charge limit set." . PHP_EOL;
+            $msg = "Charge limit set to $arg";
+            echo $msg . PHP_EOL;
+            skodaLnxCmd::serverStatus($msg);
+        }
+        break;
+
+    case 'msg':
+    case 'message':
+        $d=skodaLnxCmd::getMsg();
+        if (is_array($d)) {
+            $ret = json_encode($d, JSON_UNESCAPED_UNICODE | JSON_PRETTY_PRINT);
+            echo $ret . PHP_EOL;
+        } else {
+            echo json_encode(array('status_message' => null, 'status_level' => null, 'status_timestamp' => null, 'status_http_code' => null), JSON_PRETTY_PRINT);
         }
         break;
 
